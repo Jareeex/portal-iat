@@ -13,9 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class CheckPageAccess
 {
-    public function __construct(private AccessService $access)
-    {
-    }
+    public function __construct(private AccessService $access) {}
 
     public function handle(Request $request, Closure $next, string $pageKey): Response
     {

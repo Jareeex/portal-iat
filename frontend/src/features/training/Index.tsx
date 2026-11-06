@@ -1,1 +1,1 @@
-export { default } from './TrainingPage';
+export { default } from './TrainingIndexPage';

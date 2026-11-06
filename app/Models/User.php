@@ -13,6 +13,7 @@ class User extends Authenticatable
     use HasApiTokens, Notifiable;
 
     public const ROLE_MASTER = 'master';
+
     public const ROLE_USER = 'user';
 
     protected $fillable = ['name', 'email', 'password', 'role', 'is_active', 'department_id'];

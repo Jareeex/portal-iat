@@ -11,9 +11,7 @@ use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
-    public function __construct(private UserService $users)
-    {
-    }
+    public function __construct(private UserService $users) {}
 
     public function index(Request $request)
     {

@@ -36,6 +36,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index']);
 
     Route::get('reports', [ReportController::class, 'index'])->middleware('page.access:reports');
-    Route::get('training', [TrainingController::class, 'index'])->middleware('page.access:training');
+    Route::prefix('training')->middleware('page.access:training')->group(function () {
+        Route::get('/', [TrainingController::class, 'index']);
+        Route::get('export', [TrainingController::class, 'export'])->middleware('role.master');
+        Route::post('import', [TrainingController::class, 'import'])->middleware('role.master');
+        Route::get('crews/{crew}', [TrainingController::class, 'show']);
+
+        Route::middleware('role.master')->group(function () {
+            Route::post('crews', [TrainingController::class, 'store']);
+            Route::put('crews/{crew}', [TrainingController::class, 'update']);
+            Route::delete('crews/{crew}', [TrainingController::class, 'destroy']);
+            Route::put('crews/{crew}/records/{type}', [TrainingController::class, 'saveRecord']);
+        });
+    });
     // Fitur baru tinggal tambah: ->middleware('page.access:<key halaman>')
 });

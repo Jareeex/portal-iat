@@ -9,7 +9,9 @@ export default function PortalPage() {
   const { pages } = useAuth();
 
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
-  const page = pages.find((p) => p.route === path);
+  const page = pages.find((p) =>
+    p.route === path || (p.key.trim().toLowerCase() === 'training' && path.startsWith(`${p.route}/`)),
+  );
 
   if (!page) {
     return (

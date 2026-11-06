@@ -11,9 +11,7 @@ use Illuminate\Http\JsonResponse;
 
 class AccessController extends Controller
 {
-    public function __construct(private AccessService $access)
-    {
-    }
+    public function __construct(private AccessService $access) {}
 
     /**
      * Semua halaman + status akses user ini:

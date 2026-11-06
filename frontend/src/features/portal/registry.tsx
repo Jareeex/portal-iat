@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import ReportsPage from '../reports/ReportsPage';
 import TransactionsPage from '../transactions/TransactionsPage';
-import TrainingPage from '../training/TrainingPage';
+import TrainingPage from '../training/TrainingRootPage';
 
 /**
  * Daftarkan komponen halaman asli di sini, key = `pages.key` di database.

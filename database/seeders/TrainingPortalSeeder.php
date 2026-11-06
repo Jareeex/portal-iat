@@ -28,6 +28,6 @@ class TrainingPortalSeeder extends Seeder
             ],
         );
 
-        $this->call(CrewTrainingSeeder::class);
+        $this->call(TrainingRecordSeeder::class);
     }
 }

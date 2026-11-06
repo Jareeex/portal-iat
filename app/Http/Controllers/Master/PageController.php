@@ -11,9 +11,7 @@ use Illuminate\Validation\Rule;
 
 class PageController extends Controller
 {
-    public function __construct(private PageService $pages)
-    {
-    }
+    public function __construct(private PageService $pages) {}
 
     public function index(Request $request): JsonResponse
     {

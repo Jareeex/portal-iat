@@ -6,6 +6,7 @@
 /frontend/.env
 /frontend/.env.*
 !/frontend/.env.example
+/database/seeders/data/*.json
 /public/build
 /public/fonts-manifest.dev.json
 /public/hot
