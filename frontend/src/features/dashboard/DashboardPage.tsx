@@ -40,19 +40,25 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="page-head dashboard-head">
-        <img className="dashboard-mark" src="/logo-only.svg" alt="" />
-        <div>
+      <div className="dashboard-hero">
+        <div className="dashboard-hero-copy">
+          <span className="dashboard-eyebrow">INDONESIA AIR TRANSPORT <span>·</span> PORTAL OPERASIONAL</span>
           <h2>{greeting || 'Dashboard'}</h2>
-          <p className="muted">Fitur yang bisa kamu akses:</p>
+          <p>Satu pintu untuk mengakses layanan dan informasi kerja Anda.</p>
         </div>
+        <svg className="dashboard-route" viewBox="0 0 420 180" fill="none" aria-hidden="true">
+          <path className="route-line" d="M21 142C91 125 86 55 174 72C252 88 258 26 359 23" />
+          <circle cx="21" cy="142" r="4" />
+          <circle cx="174" cy="72" r="4" />
+          <path className="route-plane" d="m347 21 29-8-12 28-5-14-12-6Z" />
+        </svg>
       </div>
 
       {error && <Alert>{error}</Alert>}
 
       {expiredTrainings.length > 0 && (
         <Alert>
-          <strong>Training expired</strong>
+          <strong>Pelatihan kedaluwarsa</strong>
           <ul>
             {expiredTrainings.map((training, index) => (
               <li key={`${training.name}-${training.next_check}-${index}`}>

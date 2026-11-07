@@ -20,7 +20,10 @@ export function Sidebar({ title, items, footerLink, open, onNavigate }: SidebarP
     <aside className={open ? 'sidebar open' : 'sidebar'}>
       <div className="sidebar-brand">
         <img className="brand-mark-image" src="/logo-only.svg" alt="" />
-        <span>{title}</span>
+        <span className="sidebar-brand-copy">
+          <strong>{title}</strong>
+          <span>AVIATION WORKSPACE</span>
+        </span>
       </div>
 
       <nav className="sidebar-nav">
