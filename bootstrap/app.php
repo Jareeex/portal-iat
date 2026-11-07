@@ -2,12 +2,9 @@
 
 use App\Http\Middleware\CheckPageAccess;
 use App\Http\Middleware\EnsureMaster;
-use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
-use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,14 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role.master' => EnsureMaster::class,
             'page.access' => CheckPageAccess::class,
         ]);
-
-        $middleware->web(append: [
-            HandleInertiaRequests::class,
-            AddLinkHeadersForPreloadedAssets::class,
-        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
-        );
+        //
     })->create();
