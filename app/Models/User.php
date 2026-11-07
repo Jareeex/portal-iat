@@ -8,19 +8,19 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property-read Department|null $department
- *
- * @use HasFactory<UserFactory>
  */
 class User extends Authenticatable
 {
-    use HasApiTokens, HasEmployee, HasFactory, Notifiable;
+    use HasApiTokens, HasEmployee, Notifiable;
+
+    /** @use HasFactory<UserFactory> */
+    use HasFactory;
 
     public const ROLE_MASTER = 'master';
 
@@ -64,11 +64,12 @@ class User extends Authenticatable
     /**
      * Halaman tambahan di luar departemen.
      *
-     * @return BelongsToMany<Page, $this, Pivot, string>
+     * @return BelongsToMany<Page, $this, UserPageAccess, 'pivot'>
      */
     public function pages(): BelongsToMany
     {
         return $this->belongsToMany(Page::class, 'user_page_access')
+            ->using(UserPageAccess::class)
             ->withPivot('access_level')
             ->withTimestamps();
     }

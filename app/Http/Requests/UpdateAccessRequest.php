@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Stringable;
 
 class UpdateAccessRequest extends FormRequest
 {
@@ -11,6 +13,7 @@ class UpdateAccessRequest extends FormRequest
         return true; // dijaga oleh middleware role.master
     }
 
+    /** @return array<string, array<int, string|Stringable|ValidationRule>> */
     public function rules(): array
     {
         return [

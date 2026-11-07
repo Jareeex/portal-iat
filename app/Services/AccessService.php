@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Page;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
 class AccessService
 {
@@ -15,6 +15,7 @@ class AccessService
      *  - user biasa: halaman shared (tanpa departemen) + halaman departemennya
      *    + halaman tambahan yang di-assign master (user_page_access)
      */
+    /** @return Builder<Page> */
     private function accessibleQuery(User $user): Builder
     {
         $query = Page::query()->where('pages.is_active', true);
@@ -35,7 +36,8 @@ class AccessService
         });
     }
 
-    public function pagesFor(User $user): Collection
+    /** @return EloquentCollection<int, Page> */
+    public function pagesFor(User $user): EloquentCollection
     {
         $explicitPages = $user->pages->keyBy('id');
 
@@ -88,7 +90,12 @@ class AccessService
      * @param  list<int>  $pageIds  Pages granted view or edit access.
      * @param  list<int>  $editPageIds  Pages granted edit access.
      */
-    public function sync(User $user, array $pageIds, array $editPageIds = []): Collection
+    /**
+     * @param  list<int>  $pageIds
+     * @param  list<int>  $editPageIds
+     * @return EloquentCollection<int, Page>
+     */
+    public function sync(User $user, array $pageIds, array $editPageIds = []): EloquentCollection
     {
         $editIds = array_fill_keys($editPageIds, true);
         $pages = Page::query()->whereIn('id', array_unique([...$pageIds, ...$editPageIds]))->get();

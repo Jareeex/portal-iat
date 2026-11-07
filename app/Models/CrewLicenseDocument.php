@@ -11,11 +11,13 @@ class CrewLicenseDocument extends Model
 
     protected $hidden = ['path'];
 
+    /** @return BelongsTo<Crew, $this> */
     public function crew(): BelongsTo
     {
         return $this->belongsTo(Crew::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');

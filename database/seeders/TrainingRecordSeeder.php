@@ -6,6 +6,7 @@ use App\Models\Crew;
 use App\Models\CrewTraining;
 use App\Models\TrainingType;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 class TrainingRecordSeeder extends Seeder
 {
@@ -20,7 +21,12 @@ class TrainingRecordSeeder extends Seeder
             return;
         }
 
-        $data = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        $contents = file_get_contents($path);
+        if ($contents === false) {
+            throw new RuntimeException("Unable to read training records: {$path}");
+        }
+
+        $data = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
         $typeIds = [];
 
         foreach ($data['types'] as $group => $types) {

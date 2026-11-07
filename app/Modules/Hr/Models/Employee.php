@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 /**
  * @property int $user_id
@@ -24,11 +25,14 @@ use Illuminate\Support\Facades\Storage;
  * @property Carbon|null $ktp_expired_at
  * @property Carbon|null $passport_issued_at
  * @property Carbon|null $passport_expired_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property string|null $ktp_number
  * @property string|null $passport_number
  * @property string|null $npwp_number
  * @property-read int|null $age
  * @property-read string|null $photo_url
+ * @property string|null $photo_path
  * @property-read User $user
  */
 class Employee extends Model
@@ -62,11 +66,13 @@ class Employee extends Model
 
     /* ---------- Relations ---------- */
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return HasMany<EmployeeExperience, $this> */
     public function experiences(): HasMany
     {
         return $this->hasMany(EmployeeExperience::class)->orderByDesc('start_date');
@@ -86,7 +92,12 @@ class Employee extends Model
             Storage::disk(config('hr.photo_disk'))->delete($this->photo_path);
         }
 
-        $this->photo_path = $file->store('hr/photos', config('hr.photo_disk'));
+        $path = $file->store('hr/photos', config('hr.photo_disk'));
+        if ($path === false) {
+            throw new RuntimeException('Employee photo could not be stored.');
+        }
+
+        $this->photo_path = $path;
     }
 
     public function getPhotoUrlAttribute(): ?string
@@ -101,6 +112,10 @@ class Employee extends Model
         return $this->date_of_birth?->age;
     }
 
+    /**
+     * @param  Builder<Employee>  $query
+     * @return Builder<Employee>
+     */
     public function scopeSearch(Builder $query, ?string $term): Builder
     {
         if (! $term) {

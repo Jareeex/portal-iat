@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\CheckPageAccess;
 use App\Http\Middleware\EnsureMaster;
+use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(append: [
+            HandleInertiaRequests::class,
+        ]);
+
         $middleware->alias([
             'role.master' => EnsureMaster::class,
             'page.access' => CheckPageAccess::class,

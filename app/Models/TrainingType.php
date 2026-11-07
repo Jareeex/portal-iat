@@ -9,6 +9,7 @@ class TrainingType extends Model
 {
     protected $fillable = ['group', 'section', 'name', 'validity', 'sort_order'];
 
+    /** @return HasMany<CrewTraining, $this> */
     public function crewTrainings(): HasMany
     {
         return $this->hasMany(CrewTraining::class);

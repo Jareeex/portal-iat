@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\User;
 use App\Services\UserService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,7 +14,8 @@ class UserController extends Controller
 {
     public function __construct(private UserService $users) {}
 
-    public function index(Request $request)
+    /** @return LengthAwarePaginator<int, User> */
+    public function index(Request $request): LengthAwarePaginator
     {
         return $this->users->paginate(
             $request->query('search'),

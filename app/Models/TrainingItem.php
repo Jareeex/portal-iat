@@ -14,6 +14,7 @@ class TrainingItem extends Model
         return ['next_check' => 'date'];
     }
 
+    /** @return BelongsTo<Crew, $this> */
     public function crew(): BelongsTo
     {
         return $this->belongsTo(Crew::class);

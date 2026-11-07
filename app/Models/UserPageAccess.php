@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
+/** @property string $access_level */
 class UserPageAccess extends Pivot
 {
     protected $table = 'user_page_access';

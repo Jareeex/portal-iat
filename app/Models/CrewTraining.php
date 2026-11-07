@@ -7,6 +7,12 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property-read Carbon|null $last_check
+ * @property-read Carbon|null $next_check
+ * @property-read Carbon|null $plan_check
+ * @property-read TrainingType|null $type
+ */
 class CrewTraining extends Model
 {
     public const SOON_DAYS = 60;
@@ -22,11 +28,13 @@ class CrewTraining extends Model
         ];
     }
 
+    /** @return BelongsTo<Crew, $this> */
     public function crew(): BelongsTo
     {
         return $this->belongsTo(Crew::class);
     }
 
+    /** @return BelongsTo<TrainingType, $this> */
     public function type(): BelongsTo
     {
         return $this->belongsTo(TrainingType::class, 'training_type_id');
