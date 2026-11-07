@@ -21,7 +21,7 @@ class AccessController extends Controller
     public function show(User $user): JsonResponse
     {
         $user->load('department');
-        $explicitPages = $user->pages->keyBy('id');
+        $explicitPages = $user->pages()->withPivot('access_level')->get()->keyBy('id');
         $full = $user->hasFullAccess();
 
         $pages = Page::query()->with('department:id,name,code')->orderBy('sort_order')->get()

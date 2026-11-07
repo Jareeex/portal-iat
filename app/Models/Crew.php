@@ -44,26 +44,31 @@ class Crew extends Model
         return $aircraft + self::GROUPS;
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return HasMany<TrainingItem, $this> */
     public function items(): HasMany
     {
         return $this->hasMany(TrainingItem::class);
     }
 
+    /** @return HasMany<CrewTraining, $this> */
     public function trainings(): HasMany
     {
         return $this->hasMany(CrewTraining::class);
     }
 
+    /** @return HasMany<CrewLicenseDocument, $this> */
     public function licenseDocuments(): HasMany
     {
         return $this->hasMany(CrewLicenseDocument::class)->latest();
     }
 
+    /** @return BelongsToMany<TrainingAircraft, $this> */
     public function trainingAircrafts(): BelongsToMany
     {
         return $this->belongsToMany(TrainingAircraft::class, 'crew_training_aircraft')->withTimestamps();

@@ -3,8 +3,10 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Stringable;
 
 class StoreUserRequest extends FormRequest
 {
@@ -13,9 +15,11 @@ class StoreUserRequest extends FormRequest
         return true; // dijaga oleh middleware role.master
     }
 
+    /** @return array<string, array<int, string|Stringable|ValidationRule>> */
     public function rules(): array
     {
-        $userId = $this->route('user')?->id;
+        $routeUser = $this->route('user');
+        $userId = $routeUser instanceof User ? $routeUser->getKey() : $routeUser;
         $isUpdate = $userId !== null;
 
         return [

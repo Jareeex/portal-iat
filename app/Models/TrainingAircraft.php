@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class TrainingAircraft extends Model
 {
@@ -16,6 +17,7 @@ class TrainingAircraft extends Model
         return ['is_active' => 'boolean'];
     }
 
+    /** @return BelongsToMany<Crew, $this, Pivot, 'pivot'> */
     public function crews(): BelongsToMany
     {
         return $this->belongsToMany(Crew::class, 'crew_training_aircraft')->withTimestamps();

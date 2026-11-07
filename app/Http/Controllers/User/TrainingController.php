@@ -46,7 +46,8 @@ class TrainingController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $today = Carbon::today();
+        $period = new Carbon('today');
+        $period->locale('id');
 
         $groups = $this->groupsForUi();
         $crews = Crew::query()
@@ -100,7 +101,7 @@ class TrainingController extends Controller
                 'soon' => $crews->sum('soon'),
                 'valid' => $crews->sum('valid'),
             ],
-            'period' => $today->locale('id')->translatedFormat('F Y'),
+            'period' => $period->translatedFormat('F Y'),
             'aircrafts' => TrainingAircraft::query()
                 ->where('is_active', true)
                 ->orderBy('sort_order')
@@ -296,7 +297,7 @@ class TrainingController extends Controller
             'aircraft_id' => ['required', 'integer', Rule::exists('training_aircrafts', 'id')
                 ->where('is_active', true)],
         ]);
-        $aircraft = TrainingAircraft::query()->findOrFail($data['aircraft_id']);
+        $aircraft = TrainingAircraft::query()->findOrFail((int) $data['aircraft_id']);
         $crew->trainingAircrafts()->syncWithoutDetaching([$aircraft->id]);
 
         return response()->json([
@@ -516,6 +517,10 @@ class TrainingController extends Controller
 
         return response()->streamDownload(function () use ($crews, $types): void {
             $output = fopen('php://output', 'w');
+            if ($output === false) {
+                throw new RuntimeException('Output CSV gagal dibuka.');
+            }
+
             fwrite($output, "\xEF\xBB\xBF");
             fputcsv($output, ['group', 'crew', 'section', 'training', 'validity', 'last_check', 'next_check', 'plan_check', 'status']);
 

@@ -28,7 +28,7 @@ class DashboardController extends Controller
                     && $crew->appliesToTrainingType($training->type))
                 ->map(fn (CrewTraining $training): array => [
                     'name' => $training->type->name,
-                    'next_check' => $training->next_check->toDateString(),
+                    'next_check' => $training->next_check?->toDateString(),
                 ])
                 ->values()
             : collect();

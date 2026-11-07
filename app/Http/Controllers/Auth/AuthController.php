@@ -63,6 +63,17 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logout berhasil.']);
     }
 
+    /**
+     * @return array{
+     *     id: int,
+     *     name: string,
+     *     email: string,
+     *     role: string,
+     *     is_master: bool,
+     *     full_access: bool,
+     *     department: array<string, mixed>|null
+     * }
+     */
     private function userPayload(User $user): array
     {
         $user->loadMissing('department');

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
 
-/** @extends JsonResource<Employee> */
+/** @mixin Employee */
 class EmployeeResource extends JsonResource
 {
     private const DATES = [
@@ -57,8 +57,8 @@ class EmployeeResource extends JsonResource
                 'department' => $employee->user->department?->only(['id', 'name', 'code']),
             ]),
             'experiences' => $this->whenLoaded('experiences'),
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            'created_at' => $employee->created_at,
+            'updated_at' => $employee->updated_at,
         ];
     }
 }

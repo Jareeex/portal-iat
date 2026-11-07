@@ -7,6 +7,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class UserService
 {
+    /** @return LengthAwarePaginator<int, User> */
     public function paginate(?string $search = null, ?int $departmentId = null, int $perPage = 15): LengthAwarePaginator
     {
         return User::query()
@@ -22,6 +23,7 @@ class UserService
             ->paginate($perPage);
     }
 
+    /** @param array<string, mixed> $data */
     public function create(array $data): User
     {
         $data['role'] ??= User::ROLE_USER;
@@ -29,6 +31,7 @@ class UserService
         return User::create($data)->load('department');
     }
 
+    /** @param array<string, mixed> $data */
     public function update(User $user, array $data): User
     {
         if (empty($data['password'])) {
