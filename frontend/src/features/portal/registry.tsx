@@ -14,8 +14,8 @@ import EmployeesPage from '../hr/EmployeesPage';
  *   3. Tambah di bawah:  'hr-employees': EmployeesPage
  */
 export const pageRegistry: Record<string, ComponentType> = {
-  'hr-employees': EmployeesPage,
-  reports: ReportsPage,
-  transactions: TransactionsPage,
-  training: TrainingPage,
+    'hr-employees': EmployeesPage,
+    reports: ReportsPage,
+    transactions: TransactionsPage,
+    training: TrainingPage,
 };

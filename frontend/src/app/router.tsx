@@ -12,39 +12,48 @@ import PagesPage from '../features/pages/PagesPage';
 import AccessPage from '../features/access-management/AccessPage';
 
 export const router = createBrowserRouter([
-  {
-    element: <AuthLayout />,
-    children: [{ path: '/login', element: <LoginPage /> }],
-  },
-  {
-    element: <RequireAuth />,
-    children: [
-      // Portal untuk semua user: dashboard + halaman yang di-assign (dinamis dari backend).
-      {
-        element: <UserLayout />,
+    {
+        element: <AuthLayout />,
+        children: [{ path: '/login', element: <LoginPage /> }],
+    },
+    {
+        element: <RequireAuth />,
         children: [
-          { path: '/', element: <Navigate to="/dashboard" replace /> },
-          { path: '/dashboard', element: <DashboardPage /> },
-          { path: '*', element: <PortalPage /> },
+            // Portal untuk semua user: dashboard + halaman yang di-assign (dinamis dari backend).
+            {
+                element: <UserLayout />,
+                children: [
+                    {
+                        path: '/',
+                        element: <Navigate to="/dashboard" replace />,
+                    },
+                    { path: '/dashboard', element: <DashboardPage /> },
+                    { path: '*', element: <PortalPage /> },
+                ],
+            },
+            // Panel master.
+            {
+                element: <RequireMaster />,
+                children: [
+                    {
+                        path: '/master',
+                        element: <MasterLayout />,
+                        children: [
+                            {
+                                index: true,
+                                element: <Navigate to="users" replace />,
+                            },
+                            { path: 'users', element: <UsersPage /> },
+                            {
+                                path: 'departments',
+                                element: <DepartmentsPage />,
+                            },
+                            { path: 'pages', element: <PagesPage /> },
+                            { path: 'access', element: <AccessPage /> },
+                        ],
+                    },
+                ],
+            },
         ],
-      },
-      // Panel master.
-      {
-        element: <RequireMaster />,
-        children: [
-          {
-            path: '/master',
-            element: <MasterLayout />,
-            children: [
-              { index: true, element: <Navigate to="users" replace /> },
-              { path: 'users', element: <UsersPage /> },
-              { path: 'departments', element: <DepartmentsPage /> },
-              { path: 'pages', element: <PagesPage /> },
-              { path: 'access', element: <AccessPage /> },
-            ],
-          },
-        ],
-      },
-    ],
-  },
+    },
 ]);

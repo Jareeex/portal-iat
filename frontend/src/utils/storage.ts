@@ -1,25 +1,25 @@
 const KEY = 'portal_token';
 
 export function getToken(): string | null {
-  try {
-    return localStorage.getItem(KEY);
-  } catch {
-    return null;
-  }
+    try {
+        return localStorage.getItem(KEY);
+    } catch {
+        return null;
+    }
 }
 
 export function setToken(token: string): void {
-  try {
-    localStorage.setItem(KEY, token);
-  } catch {
-    /* storage diblokir, sesi hanya hidup sampai reload */
-  }
+    try {
+        localStorage.setItem(KEY, token);
+    } catch {
+        /* storage diblokir, sesi hanya hidup sampai reload */
+    }
 }
 
 export function clearToken(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    /* abaikan */
-  }
+    try {
+        localStorage.removeItem(KEY);
+    } catch {
+        /* abaikan */
+    }
 }
