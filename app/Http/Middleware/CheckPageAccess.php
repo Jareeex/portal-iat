@@ -15,11 +15,14 @@ class CheckPageAccess
 {
     public function __construct(private AccessService $access) {}
 
-    public function handle(Request $request, Closure $next, string $pageKey): Response
+    public function handle(Request $request, Closure $next, string $pageKey, ?string $permission = null): Response
     {
         $user = $request->user();
+        $authorized = $user && ($permission === 'edit'
+            ? $this->access->canEdit($user, $pageKey)
+            : $this->access->canAccess($user, $pageKey));
 
-        if (! $user || ! $this->access->canAccess($user, $pageKey)) {
+        if (! $authorized) {
             return response()->json(['message' => 'Kamu tidak punya akses ke halaman ini.'], 403);
         }
 

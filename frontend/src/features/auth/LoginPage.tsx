@@ -36,10 +36,16 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <section className="login-story" aria-label="Portal IAT">
+        <svg className="login-flight-route" viewBox="0 0 520 360" fill="none" aria-hidden="true">
+          <path d="M56 310C151 279 119 188 249 182C349 177 325 92 464 48" />
+          <circle cx="56" cy="310" r="5" />
+          <circle cx="249" cy="182" r="5" />
+          <path d="m451 44 24-8-10 23-3-12-11-3Z" />
+        </svg>
         <div className="login-story-copy">
-          <span className="eyebrow">Indonesia Air Transport Internal Acces</span>
-          <h1>Connected Workplace.</h1>
-          <p>Your central access to internal systems, information, and services. Stay connected, stay informed, and work seamlessly.</p>
+          <span className="eyebrow">INDONESIA AIR TRANSPORT · INTERNAL</span>
+          <h1>Terhubung.<br />Siap beroperasi.</h1>
+          <p>Satu akses terpadu untuk sistem, informasi, dan layanan kerja Indonesia Air Transport.</p>
         </div>
         <div className="login-story-foot">
           <span className="status-dot" />
@@ -50,14 +56,15 @@ export default function LoginPage() {
       <form className="login-card" onSubmit={onSubmit}>
         <div className="login-head">
           <img className="login-logo-full" src="/Logo-IAT.svg" alt="Indonesia Air Transport" />
-          <h1>Welcome</h1>
-          <p className="muted">Login to Your Account</p>
+          <span className="login-section-label">RUANG KERJA DIGITAL</span>
+          <h1>Selamat datang</h1>
+          <p className="muted">Masuk dengan akun kerja Anda.</p>
         </div>
 
         {error && <Alert>{error}</Alert>}
 
         <label className="field">
-          <span className="field-label">Email</span>
+          <span className="field-label">Email kerja</span>
           <input
             type="email"
             autoComplete="username"
@@ -69,7 +76,7 @@ export default function LoginPage() {
         </label>
 
         <label className="field">
-          <span className="field-label">Password</span>
+          <span className="field-label">Kata sandi</span>
           <input
             type="password"
             autoComplete="current-password"
@@ -80,7 +87,7 @@ export default function LoginPage() {
         </label>
 
         <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
-          {submitting ? 'Memproses...' : 'Masuk'}
+          {submitting ? 'Memverifikasi akses...' : 'Masuk ke portal'}
         </button>
       </form>
     </div>

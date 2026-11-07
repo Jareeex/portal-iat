@@ -12,8 +12,10 @@ export default function UserLayout() {
 
   const items = useMemo<NavItem[]>(
     () => [
-      { to: '/dashboard', label: 'Dashboard' },
-      ...pages.filter((p) => p.route !== '/dashboard').map((p) => ({ to: p.route, label: p.name })),
+      { to: '/dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+      ...pages
+        .filter((p) => p.route !== '/dashboard')
+        .map((p) => ({ to: p.route, label: p.name, icon: p.icon ?? p.key })),
     ],
     [pages],
   );

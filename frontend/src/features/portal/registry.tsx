@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import ReportsPage from '../reports/ReportsPage';
 import TransactionsPage from '../transactions/TransactionsPage';
 import TrainingPage from '../training/TrainingRootPage';
+import EmployeesPage from '../hr/EmployeesPage';
 
 /**
  * Daftarkan komponen halaman asli di sini, key = `pages.key` di database.
@@ -13,6 +14,7 @@ import TrainingPage from '../training/TrainingRootPage';
  *   3. Tambah di bawah:  'hr-employees': EmployeesPage
  */
 export const pageRegistry: Record<string, ComponentType> = {
+  'hr-employees': EmployeesPage,
   reports: ReportsPage,
   transactions: TransactionsPage,
   training: TrainingPage,

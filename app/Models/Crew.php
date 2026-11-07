@@ -3,21 +3,19 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Crew extends Model
 {
     public const GROUPS = [
-        'fw_atr' => ['label' => 'ATR 42 / EMB 135', 'category' => 'Pilot'],
-        'fw_rss' => ['label' => 'EMB 135 BJ (RSS)', 'category' => 'Pilot'],
-        'fw_jam' => ['label' => 'Hawker 900XP (JAM)', 'category' => 'Pilot'],
-        'rw' => ['label' => 'EC 155 B1 (Rotary)', 'category' => 'Pilot'],
         'fa' => ['label' => 'Flight Attendant', 'category' => 'Flight Attendant'],
         'foo_hlo' => ['label' => 'FOO & HLO', 'category' => 'FOO & HLO'],
     ];
 
     protected $fillable = [
-        'group', 'name', 'code', 'category', 'fleet', 'position', 'sort_order',
+        'user_id', 'group', 'pilot_role', 'name', 'code', 'category', 'fleet', 'position', 'sort_order',
         'dob', 'address', 'passport_no', 'passport_expiry', 'nationality',
         'joined_iat', 'licence', 'rating', 'remarks',
     ];
@@ -31,6 +29,26 @@ class Crew extends Model
         ];
     }
 
+    /** @return array<string, array{label: string, category: string}> */
+    public static function groupOptions(): array
+    {
+        $aircraft = TrainingAircraft::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->mapWithKeys(fn (TrainingAircraft $aircraft): array => [
+                $aircraft->group_key => ['label' => $aircraft->name, 'category' => 'Pilot'],
+            ])
+            ->all();
+
+        return $aircraft + self::GROUPS;
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(TrainingItem::class);
@@ -39,5 +57,35 @@ class Crew extends Model
     public function trainings(): HasMany
     {
         return $this->hasMany(CrewTraining::class);
+    }
+
+    public function licenseDocuments(): HasMany
+    {
+        return $this->hasMany(CrewLicenseDocument::class)->latest();
+    }
+
+    public function trainingAircrafts(): BelongsToMany
+    {
+        return $this->belongsToMany(TrainingAircraft::class, 'crew_training_aircraft')->withTimestamps();
+    }
+
+    public function hasTrainingGroup(string $group): bool
+    {
+        if (isset(self::GROUPS[$group])) {
+            return $this->group === $group;
+        }
+
+        $aircrafts = $this->trainingAircrafts;
+
+        return $aircrafts->contains('group_key', $group)
+            || ($aircrafts->isEmpty() && $this->group === $group);
+    }
+
+    public function appliesToTrainingType(TrainingType $type): bool
+    {
+        $trainingRole = TrainingType::pilotRoleFromName($type->name);
+
+        return $this->hasTrainingGroup($type->group)
+            && ($trainingRole === null || $this->pilot_role === null || $trainingRole === $this->pilot_role);
     }
 }

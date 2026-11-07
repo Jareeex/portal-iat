@@ -7,6 +7,8 @@ export interface CrewRecord {
   group: string;
   group_label: string;
   category: string;
+  pilot_role: 'PIC' | 'SIC' | null;
+  aircrafts: CrewAircraft[];
   position: string | null;
   expired: number;
   soon: number;
@@ -30,6 +32,7 @@ export interface TrainingIndexResponse {
   crews: CrewRecord[];
   summary: TrainingSummary;
   period: string;
+  aircrafts: { id: number; key: string; label: string }[];
   groups: GroupOption[];
   can: { manage: boolean };
 }
@@ -56,11 +59,20 @@ export interface TrainingCrewDetail {
   code: string | null;
   group: string;
   group_label: string;
+  pilot_role: 'PIC' | 'SIC' | null;
   category: string;
   position: string | null;
+  aircrafts: CrewAircraft[];
+}
+
+export interface CrewAircraft {
+  id: number;
+  key: string;
+  label: string;
 }
 
 export interface CrewPersonalData {
+  email: string | null;
   dob: string | null;
   address: string | null;
   passport_no: string | null;
@@ -76,13 +88,24 @@ export interface TrainingDetailResponse {
   crew: TrainingCrewDetail;
   personal: CrewPersonalData | null;
   sections: TrainingSection[];
+  groups: GroupOption[];
+  aircraft_options: CrewAircraft[];
+  license_documents: LicenseDocument[];
   counts: Omit<TrainingSummary, 'crew'>;
   can: { manage: boolean };
 }
 
+export interface LicenseDocument {
+  id: number;
+  name: string;
+  uploaded_at: string | null;
+}
+
 export interface CrewFormData {
   group: string;
+  pilot_role: 'PIC' | 'SIC' | '';
   name: string;
+  email: string;
   code: string;
   position: string;
   rating: string;

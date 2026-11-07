@@ -38,16 +38,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('reports', [ReportController::class, 'index'])->middleware('page.access:reports');
     Route::prefix('training')->middleware('page.access:training')->group(function () {
         Route::get('/', [TrainingController::class, 'index']);
-        Route::get('export', [TrainingController::class, 'export'])->middleware('role.master');
-        Route::post('import', [TrainingController::class, 'import'])->middleware('role.master');
+        Route::get('export', [TrainingController::class, 'export'])->middleware('page.access:training,edit');
+        Route::post('import', [TrainingController::class, 'import'])->middleware('page.access:training,edit');
+        Route::post('aircraft', [TrainingController::class, 'storeAircraft'])->middleware('page.access:training,edit');
+        Route::delete('aircraft/{aircraft}', [TrainingController::class, 'destroyAircraft'])
+            ->middleware('page.access:training,edit');
+        Route::post('crews/{crew}/aircrafts', [TrainingController::class, 'storeCrewAircraft'])
+            ->middleware('page.access:training,edit');
+        Route::delete('crews/{crew}/aircrafts/{aircraft}', [TrainingController::class, 'destroyCrewAircraft'])
+            ->middleware('page.access:training,edit');
         Route::get('crews/{crew}', [TrainingController::class, 'show']);
+        Route::post('crews/{crew}/licenses', [TrainingController::class, 'storeLicenseDocuments'])
+            ->middleware('page.access:training,edit');
+        Route::get('crews/{crew}/licenses/{document}', [TrainingController::class, 'showLicenseDocument']);
+        Route::delete('crews/{crew}/licenses/{document}', [TrainingController::class, 'destroyLicenseDocument'])
+            ->middleware('page.access:training,edit');
 
-        Route::middleware('role.master')->group(function () {
-            Route::post('crews', [TrainingController::class, 'store']);
-            Route::put('crews/{crew}', [TrainingController::class, 'update']);
-            Route::delete('crews/{crew}', [TrainingController::class, 'destroy']);
-            Route::put('crews/{crew}/records/{type}', [TrainingController::class, 'saveRecord']);
-        });
+        Route::post('crews', [TrainingController::class, 'store'])->middleware('page.access:training,edit');
+        Route::put('crews/{crew}', [TrainingController::class, 'update'])->middleware('page.access:training,edit');
+        Route::delete('crews/{crew}', [TrainingController::class, 'destroy'])->middleware('page.access:training,edit');
+        Route::put('crews/{crew}/records/{type}', [TrainingController::class, 'saveRecord'])
+            ->middleware('page.access:training,edit');
     });
     // Fitur baru tinggal tambah: ->middleware('page.access:<key halaman>')
 });

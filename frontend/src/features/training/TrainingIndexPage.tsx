@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, EmptyState, Loader } from '../../components/common/Feedback';
 import { trainingService } from '../../services/training.service';
@@ -27,6 +27,9 @@ export default function TrainingIndexPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [aircraftName, setAircraftName] = useState('');
+  const [addingAircraft, setAddingAircraft] = useState(false);
+  const [removingAircraftId, setRemovingAircraftId] = useState<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -46,7 +49,7 @@ export default function TrainingIndexPage() {
   const crews = useMemo(() => {
     const term = query.trim().toLocaleLowerCase('id-ID');
     return (data?.crews ?? []).filter((crew) => {
-      if (group !== 'all' && crew.group !== group) return false;
+      if (group !== 'all' && !crew.aircrafts.some((aircraft) => aircraft.key === group) && crew.group !== group) return false;
       if (status === 'expired' && crew.expired === 0) return false;
       if (status === 'soon' && crew.soon === 0) return false;
       return !term || `${crew.name} ${crew.code ?? ''}`.toLocaleLowerCase('id-ID').includes(term);
@@ -81,6 +84,39 @@ export default function TrainingIndexPage() {
     }
   }
 
+  async function addAircraft(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setError(null);
+    setMessage(null);
+    setAddingAircraft(true);
+    try {
+      await trainingService.createAircraft(aircraftName.trim());
+      setAircraftName('');
+      setMessage('Pesawat berhasil ditambahkan.');
+      await load();
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setAddingAircraft(false);
+    }
+  }
+
+  async function removeAircraft(aircraftId: number, aircraftName: string): Promise<void> {
+    if (!window.confirm(`Hapus pesawat ${aircraftName} dari pilihan?`)) return;
+    setError(null);
+    setMessage(null);
+    setRemovingAircraftId(aircraftId);
+    try {
+      await trainingService.removeAircraft(aircraftId);
+      setMessage(`${aircraftName} dihapus dari pilihan pesawat.`);
+      await load();
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setRemovingAircraftId(null);
+    }
+  }
+
   if (loading) return <Loader />;
 
   return (
@@ -96,6 +132,20 @@ export default function TrainingIndexPage() {
             <button type="button" className="btn btn-ghost" onClick={() => void downloadCsv()}>Export CSV</button>
             <button type="button" className="btn btn-ghost" onClick={() => fileInput.current?.click()}>Import CSV</button>
             <input ref={fileInput} className="training-file-input" type="file" accept=".csv,.txt" onChange={(event) => void importCsv(event)} />
+            <form className="training-aircraft-form" onSubmit={(event) => void addAircraft(event)}>
+              <input
+                type="text"
+                value={aircraftName}
+                onChange={(event) => setAircraftName(event.target.value)}
+                placeholder="Nama pesawat baru"
+                aria-label="Nama pesawat baru"
+                maxLength={120}
+                required
+              />
+              <button type="submit" className="btn btn-ghost" disabled={addingAircraft || !aircraftName.trim()}>
+                Tambah pesawat
+              </button>
+            </form>
             <Link to="/training/crews/create" className="btn btn-primary">+ Tambah crew</Link>
           </div>
         )}
@@ -106,6 +156,27 @@ export default function TrainingIndexPage() {
 
       {data && (
         <>
+          {data.can.manage && data.aircrafts.length > 0 && (
+            <section className="panel training-aircraft-list">
+              <h3>Pesawat</h3>
+              <ul>
+                {data.aircrafts.map((aircraft) => (
+                  <li key={aircraft.id}>
+                    <span>{aircraft.label}</span>
+                    <button
+                      type="button"
+                      className="btn btn-danger"
+                      disabled={removingAircraftId !== null}
+                      onClick={() => void removeAircraft(aircraft.id, aircraft.label)}
+                    >
+                      {removingAircraftId === aircraft.id ? 'Menghapus…' : 'Hapus'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="muted">Pesawat yang masih dipakai crew harus dipindahkan dulu. Data training lama tetap disimpan.</p>
+            </section>
+          )}
           <div className="training-stats">
             <div className="training-stat"><span className="training-stat-value">{data.summary.crew}</span><span className="muted">Crew</span></div>
             <div className="training-stat training-stat-expired"><span className="training-stat-value">{data.summary.expired}</span><span className="muted">Training expired</span></div>
@@ -135,7 +206,10 @@ export default function TrainingIndexPage() {
                 <Link className="training-crew-summary training-crew-link" key={crew.id} to={`/training/crews/${crew.id}`}>
                   <span className="training-crew-name">
                     <strong>{crew.name}</strong>
-                    <span className="muted">{[crew.code, crew.group_label, crew.position].filter(Boolean).join(' · ')}</span>
+                    <span className="muted">
+                      {[crew.code, crew.aircrafts.map((aircraft) => aircraft.label).join(', ') || crew.group_label, crew.pilot_role, crew.position]
+                        .filter(Boolean).join(' · ')}
+                    </span>
                   </span>
                   <StatusBar crew={crew} />
                   <span className="training-counts">

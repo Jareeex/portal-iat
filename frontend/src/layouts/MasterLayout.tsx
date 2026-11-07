@@ -4,10 +4,10 @@ import { Sidebar, type NavItem } from '../components/sidebar/Sidebar';
 import { Navbar } from '../components/navbar/Navbar';
 
 const items: NavItem[] = [
-  { to: '/master/users', label: 'Users' },
-  { to: '/master/departments', label: 'Departments' },
-  { to: '/master/pages', label: 'Pages' },
-  { to: '/master/access', label: 'Access' },
+  { to: '/master/users', label: 'Users', icon: 'users' },
+  { to: '/master/departments', label: 'Departments', icon: 'building-2' },
+  { to: '/master/pages', label: 'Pages', icon: 'panels' },
+  { to: '/master/access', label: 'Access', icon: 'shield' },
 ];
 
 export default function MasterLayout() {
@@ -18,7 +18,7 @@ export default function MasterLayout() {
       <Sidebar
         title="Master Panel"
         items={items}
-        footerLink={{ to: '/dashboard', label: '← Kembali ke Portal' }}
+        footerLink={{ to: '/dashboard', label: 'Kembali ke Portal', icon: 'arrow-left' }}
         open={open}
         onNavigate={() => setOpen(false)}
       />

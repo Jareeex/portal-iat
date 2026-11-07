@@ -10,5 +10,5 @@ class UserPageAccess extends Pivot
 
     public $incrementing = true;
 
-    protected $fillable = ['user_id', 'page_id'];
+    protected $fillable = ['user_id', 'page_id', 'access_level'];
 }

@@ -16,6 +16,8 @@ class UpdateAccessRequest extends FormRequest
         return [
             'page_ids' => ['present', 'array'],
             'page_ids.*' => ['integer', 'distinct', 'exists:pages,id'],
+            'edit_page_ids' => ['sometimes', 'array'],
+            'edit_page_ids.*' => ['integer', 'distinct', 'exists:pages,id'],
         ];
     }
 }

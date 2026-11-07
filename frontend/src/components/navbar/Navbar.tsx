@@ -9,6 +9,14 @@ export function Navbar({ onMenu }: { onMenu: () => void }) {
         ☰
       </button>
 
+      <div className="navbar-context">
+        <span className="navbar-context-mark" aria-hidden="true" />
+        <div>
+          <span>INDONESIA AIR TRANSPORT</span>
+          <strong>INTERNAL OPERATIONS</strong>
+        </div>
+      </div>
+
       <div className="navbar-spacer" />
 
       {user && (

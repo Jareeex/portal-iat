@@ -2,4 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::fallback(function () {
+    abort_if(request()->is('api/*'), 404);
+    return response()->file(public_path('index.html'));
+});
