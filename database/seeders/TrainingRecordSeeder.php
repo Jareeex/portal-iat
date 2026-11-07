@@ -39,7 +39,7 @@ class TrainingRecordSeeder extends Seeder
             unset($crewData['records']);
 
             $group = $crewData['group'];
-            $groupInfo = Crew::GROUPS[$group];
+            $groupInfo = Crew::groupOptions()[$group];
             $crewData['category'] = $groupInfo['category'];
             $crewData['fleet'] = $groupInfo['label'];
             $crewData['position'] ??= '';

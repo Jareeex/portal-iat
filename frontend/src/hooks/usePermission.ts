@@ -10,5 +10,6 @@ export function usePermission() {
     isMaster: !!user?.is_master,
     fullAccess: !!user?.full_access,
     can: (pageKey: string) => keys.has(pageKey),
+    canEdit: (pageKey: string) => !!pages.find((page) => page.key === pageKey && page.access_level === 'edit'),
   };
 }

@@ -13,4 +13,11 @@ class TrainingType extends Model
     {
         return $this->hasMany(CrewTraining::class);
     }
+
+    public static function pilotRoleFromName(string $name): ?string
+    {
+        return preg_match('/^Pilot Proficiency Check\s*[–—-]\s*(?:Simulator|Aircraft)\s+(PIC|SIC)$/u', $name, $matches)
+            ? $matches[1]
+            : null;
+    }
 }

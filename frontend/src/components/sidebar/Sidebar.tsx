@@ -1,8 +1,10 @@
 import { NavLink } from 'react-router-dom';
+import { NavIcon } from '../common/NavIcon';
 
 export interface NavItem {
   to: string;
   label: string;
+  icon?: string;
 }
 
 interface SidebarProps {
@@ -29,7 +31,7 @@ export function Sidebar({ title, items, footerLink, open, onNavigate }: SidebarP
             onClick={onNavigate}
             className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
           >
-            <span className="nav-dot">{item.label.charAt(0).toUpperCase()}</span>
+            <NavIcon name={item.icon ?? item.label} />
             {item.label}
           </NavLink>
         ))}
@@ -38,6 +40,7 @@ export function Sidebar({ title, items, footerLink, open, onNavigate }: SidebarP
       {footerLink && (
         <div className="sidebar-footer">
           <NavLink to={footerLink.to} onClick={onNavigate} className="nav-link">
+            <NavIcon name={footerLink.icon ?? footerLink.label} />
             {footerLink.label}
           </NavLink>
         </div>

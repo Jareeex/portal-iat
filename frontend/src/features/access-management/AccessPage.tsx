@@ -6,13 +6,15 @@ import { errorMessage } from '../../utils/error';
 import { Alert, EmptyState, Loader } from '../../components/common/Feedback';
 import type { AccessResponse, ManagedUser } from '../../types';
 
+type AccessPermission = 'view' | 'edit' | '';
+
 export default function AccessPage() {
   const [params, setParams] = useSearchParams();
   const userId = Number(params.get('user')) || null;
 
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [access, setAccess] = useState<AccessResponse | null>(null);
-  const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const [permissions, setPermissions] = useState<Record<number, AccessPermission>>({});
 
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingAccess, setLoadingAccess] = useState(false);
@@ -39,7 +41,7 @@ export default function AccessPage() {
       .get(userId)
       .then((res) => {
         setAccess(res);
-        setChecked(Object.fromEntries(res.pages.map((p) => [p.id, p.granted])));
+        setPermissions(Object.fromEntries(res.pages.map((p) => [p.id, p.permission ?? ''])));
       })
       .catch((e) => setError(errorMessage(e)))
       .finally(() => setLoadingAccess(false));
@@ -51,11 +53,13 @@ export default function AccessPage() {
     setError(null);
     setSaved(false);
 
-    // Hanya akses TAMBAHAN yang disimpan; halaman departemen/shared sudah otomatis.
-    const ids = access.pages.filter((p) => !p.by_department && checked[p.id]).map((p) => p.id);
+    const ids = access.pages.filter((page) => permissions[page.id]).map((page) => page.id);
+    const editIds = access.pages
+      .filter((page) => permissions[page.id] === 'edit')
+      .map((page) => page.id);
 
     try {
-      await accessService.update(userId, ids);
+      await accessService.update(userId, ids, editIds);
       setSaved(true);
     } catch (e) {
       setError(errorMessage(e));
@@ -71,7 +75,7 @@ export default function AccessPage() {
       <div className="page-head">
         <h2>Access</h2>
         <p className="muted">
-          Halaman departemen dan shared terbuka otomatis. Centang halaman lain untuk memberi akses tambahan.
+          Master dapat mengatur user sebagai view only atau editable untuk setiap halaman.
         </p>
       </div>
 
@@ -100,35 +104,43 @@ export default function AccessPage() {
         <div className="panel">
           {access.full_access && (
             <Alert kind="info">
-              User ini punya full access (master atau departemen full-access), semua halaman otomatis terbuka.
+              User ini mendapat akses halaman secara otomatis dari role atau departemennya.
+              {access.is_master && ' Akun master selalu memiliki akses editable.'}
             </Alert>
           )}
 
           <ul className="access-list">
             {access.pages.map((p) => (
               <li key={p.id} className={p.by_department ? 'access-item locked' : 'access-item'}>
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={p.by_department || !!checked[p.id]}
-                    disabled={p.by_department}
-                    onChange={(e) => setChecked({ ...checked, [p.id]: e.target.checked })}
-                  />
-                  <span>
-                    <strong>{p.name}</strong> <code>{p.key}</code>
-                  </span>
+                <span>
+                  <strong>{p.name}</strong> <code>{p.key}</code>
+                </span>
+                <label className="access-level">
+                  <span className="sr-only">Hak akses {p.name}</span>
+                  <select
+                    value={permissions[p.id] ?? ''}
+                    disabled={access.is_master}
+                    onChange={(event) => setPermissions({
+                      ...permissions,
+                      [p.id]: event.target.value as AccessPermission,
+                    })}
+                  >
+                    {!p.by_department && <option value="">Tidak ada akses</option>}
+                    <option value="view">View only</option>
+                    <option value="edit">Editable</option>
+                  </select>
                 </label>
                 <span className="access-meta">
                   {!p.is_active && <span className="badge badge-off">Nonaktif</span>}
                   {p.department ? <span className="badge">{p.department.code}</span> : <span className="badge badge-accent">Shared</span>}
-                  {p.by_department && <span className="muted">otomatis</span>}
+                  {p.by_department && <span className="muted">akses otomatis</span>}
                 </span>
               </li>
             ))}
           </ul>
 
           <div className="modal-actions">
-            <button type="button" className="btn btn-primary" onClick={() => void onSave()} disabled={saving}>
+            <button type="button" className="btn btn-primary" onClick={() => void onSave()} disabled={saving || access.is_master}>
               {saving ? 'Menyimpan...' : 'Simpan akses'}
             </button>
           </div>

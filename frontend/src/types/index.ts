@@ -31,6 +31,7 @@ export interface PortalPage {
   description: string | null;
   route: string;
   icon: string | null;
+  access_level?: 'view' | 'edit';
 }
 
 export interface ManagedUser {
@@ -50,6 +51,25 @@ export interface ManagedPage extends PortalPage {
   department?: DepartmentRef | null;
 }
 
+export interface EmployeeProfile {
+  id: number;
+  user_id: number;
+  employee_number: string | null;
+  job_title: string | null;
+  office: string | null;
+  employment_status: string | null;
+  join_date: string | null;
+  end_date: string | null;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: Role;
+    is_active: boolean;
+    department: DepartmentRef | null;
+  };
+}
+
 export interface Paginated<T> {
   data: T[];
   current_page: number;
@@ -66,11 +86,13 @@ export interface AccessPage {
   department: DepartmentRef | null;
   by_department: boolean;
   granted: boolean;
+  permission: 'view' | 'edit' | null;
 }
 
 export interface AccessResponse {
   user_id: number;
   full_access: boolean;
+  is_master: boolean;
   pages: AccessPage[];
 }
 

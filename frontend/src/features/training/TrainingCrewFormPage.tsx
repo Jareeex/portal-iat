@@ -6,7 +6,7 @@ import { errorMessage } from '../../utils/error';
 import type { CrewFormData, GroupOption } from './training';
 
 const emptyForm: CrewFormData = {
-  group: '', name: '', code: '', position: '', rating: '', licence: '', dob: '', nationality: '',
+  group: '', pilot_role: '', name: '', email: '', code: '', position: '', rating: '', licence: '', dob: '', nationality: '',
   joined_iat: '', passport_no: '', passport_expiry: '', address: '', remarks: '',
 };
 
@@ -32,7 +32,9 @@ export default function TrainingCrewFormPage({ crewId }: { crewId?: number }) {
           setForm({
             ...emptyForm,
             group: detail.crew.group,
+            pilot_role: detail.crew.pilot_role ?? '',
             name: detail.crew.name,
+            email: detail.personal?.email ?? '',
             code: detail.crew.code ?? '',
             position: detail.crew.position ?? '',
             rating: detail.personal?.rating ?? '',
@@ -64,8 +66,7 @@ export default function TrainingCrewFormPage({ crewId }: { crewId?: number }) {
     setError(null);
     try {
       if (crewId) {
-        const { group: _group, ...editableData } = form;
-        await trainingService.update(crewId, editableData);
+        await trainingService.update(crewId, form);
         navigate(`/training/crews/${crewId}`);
       } else {
         const result = await trainingService.create(form);
@@ -79,10 +80,10 @@ export default function TrainingCrewFormPage({ crewId }: { crewId?: number }) {
   }
 
   if (loading) return <Loader />;
-  const field = (key: keyof CrewFormData, label: string, type = 'text') => (
+  const field = (key: keyof CrewFormData, label: string, type = 'text', required = false) => (
     <label className="field training-form-field">
       <span className="field-label">{label}</span>
-      <input type={type} value={form[key]} onChange={(event) => setField(key, event.target.value)} />
+      <input type={type} value={form[key]} onChange={(event) => setField(key, event.target.value)} required={required} />
     </label>
   );
 
@@ -99,7 +100,23 @@ export default function TrainingCrewFormPage({ crewId }: { crewId?: number }) {
               {groups.map((option) => <option key={option.key} value={option.key}>{option.category} · {option.label}</option>)}
             </select>
           </label>
+          {groups.find((option) => option.key === form.group)?.category === 'Pilot' && (
+            <label className="field training-form-field">
+              <span className="field-label">Role proficiency check</span>
+              <select
+                value={form.pilot_role}
+                onChange={(event) => setField('pilot_role', event.target.value as CrewFormData['pilot_role'])}
+                required
+              >
+                <option value="">Pilih PIC atau SIC</option>
+                <option value="PIC">PIC</option>
+                <option value="SIC">SIC</option>
+              </select>
+            </label>
+          )}
           {field('name', 'Nama lengkap')}
+          {field('email', 'Email untuk login', 'email', !crewId)}
+          {!crewId && <p className="muted training-form-note">Akun dibuat belum aktif. Master perlu mengatur password dan mengaktifkan akun di menu User.</p>}
           {field('code', 'Kode crew')}
           {field('position', 'Posisi')}
           {field('rating', 'Rating')}
