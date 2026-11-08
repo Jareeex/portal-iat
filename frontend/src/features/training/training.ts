@@ -30,6 +30,12 @@ export interface TrainingSummary {
 
 export interface TrainingIndexResponse {
     crews: CrewRecord[];
+    unassigned_crews: {
+        id: number;
+        name: string;
+        position: string;
+        pilot_role: 'PIC' | 'SIC' | null;
+    }[];
     summary: TrainingSummary;
     period: string;
     aircrafts: { id: number; key: string; label: string }[];

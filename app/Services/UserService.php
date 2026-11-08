@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Modules\Hr\Models\Employee;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class UserService
 {
@@ -28,7 +30,27 @@ class UserService
     {
         $data['role'] ??= User::ROLE_USER;
 
-        return User::create($data)->load('department');
+        return DB::transaction(function () use ($data): User {
+            $employeeId = $data['employee_id'] ?? null;
+            unset($data['employee_id']);
+
+            $employee = $employeeId === null
+                ? null
+                : Employee::query()
+                    ->whereNull('user_id')
+                    ->lockForUpdate()
+                    ->findOrFail($employeeId);
+
+            $user = User::create($data);
+
+            if ($employee) {
+                $user->employee()->delete();
+                $employee->user()->associate($user);
+                $employee->save();
+            }
+
+            return $user->load('department');
+        });
     }
 
     /** @param array<string, mixed> $data */

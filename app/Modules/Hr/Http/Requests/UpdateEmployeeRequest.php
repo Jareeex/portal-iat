@@ -20,6 +20,15 @@ class UpdateEmployeeRequest extends FormRequest
         $employee = $this->route('employee');
         abort_unless($employee instanceof Employee, 404);
 
-        return array_merge(EmployeeRules::employment($employee->id), EmployeeRules::personal());
+        $rules = array_merge(
+            EmployeeRules::employment($employee->id),
+            EmployeeRules::personal(),
+        );
+
+        if ($employee->user_id === null) {
+            $rules['name'] = ['sometimes', 'required', 'string', 'max:255'];
+        }
+
+        return $rules;
     }
 }

@@ -43,6 +43,13 @@ export default function TrainingIndexPage() {
     const [data, setData] = useState<TrainingIndexResponse | null>(null);
     const [query, setQuery] = useState('');
     const [group, setGroup] = useState('all');
+    const [aircraftAssignments, setAircraftAssignments] = useState<
+        Record<number, string>
+    >({});
+    const [pilotRoleAssignments, setPilotRoleAssignments] = useState<
+        Record<number, 'PIC' | 'SIC' | ''>
+    >({});
+    const [assigningCrewId, setAssigningCrewId] = useState<number | null>(null);
     const [status, setStatus] = useState<StatusFilter>('all');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -106,23 +113,52 @@ export default function TrainingIndexPage() {
         }
     }
 
-    async function importCsv(
+    async function importExcel(
         event: ChangeEvent<HTMLInputElement>,
     ): Promise<void> {
         const file = event.target.files?.[0];
         if (!file) return;
         try {
-            const result = await trainingService.importCsv(file);
+            const result = await trainingService.importExcel(file);
             setMessage(
                 result.errors.length
                     ? `${result.message} ${result.errors.join('; ')}`
-                    : result.message,
+                    : `${result.message} Atur kelompok pesawat crew baru pada daftar di bawah.`,
             );
             await load();
         } catch (cause) {
             setError(errorMessage(cause));
         } finally {
             event.target.value = '';
+        }
+    }
+
+    async function assignCrewAircraft(crewId: number): Promise<void> {
+        const aircraftId = aircraftAssignments[crewId];
+        const crew = data?.unassigned_crews.find((item) => item.id === crewId);
+        const pilotRole = crew?.pilot_role ?? pilotRoleAssignments[crewId];
+        if (!aircraftId || !pilotRole) return;
+
+        setError(null);
+        setMessage(null);
+        setAssigningCrewId(crewId);
+        try {
+            await trainingService.addCrewAircraft(
+                crewId,
+                Number(aircraftId),
+                pilotRole,
+            );
+            setAircraftAssignments((assignments) => {
+                const nextAssignments = { ...assignments };
+                delete nextAssignments[crewId];
+                return nextAssignments;
+            });
+            setMessage('Kelompok pesawat crew berhasil ditetapkan.');
+            await load();
+        } catch (cause) {
+            setError(errorMessage(cause));
+        } finally {
+            setAssigningCrewId(null);
         }
     }
 
@@ -191,14 +227,14 @@ export default function TrainingIndexPage() {
                             className="btn btn-ghost"
                             onClick={() => fileInput.current?.click()}
                         >
-                            Import CSV
+                            Import Excel
                         </button>
                         <input
                             ref={fileInput}
                             className="training-file-input"
                             type="file"
-                            accept=".csv,.txt"
-                            onChange={(event) => void importCsv(event)}
+                            accept=".xlsx"
+                            onChange={(event) => void importExcel(event)}
                         />
                         <form
                             className="training-aircraft-form"
@@ -272,6 +308,119 @@ export default function TrainingIndexPage() {
                                 dipindahkan dulu. Data training lama tetap
                                 disimpan.
                             </p>
+                        </section>
+                    )}
+                    {data.can.manage && data.unassigned_crews.length > 0 && (
+                        <section className="panel training-aircraft-list">
+                            <h3>Atur kelompok pesawat crew impor</h3>
+                            <p className="muted">
+                                Pilih kelompok pesawat untuk setiap crew setelah
+                                data Excel diimpor.
+                            </p>
+                            <ul>
+                                {data.unassigned_crews.map((crew) => (
+                                    <li key={crew.id}>
+                                        <span>
+                                            <strong>{crew.name}</strong>
+                                            {crew.position && (
+                                                <span className="muted">
+                                                    {' '}
+                                                    · {crew.position}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <div className="training-actions">
+                                            {!crew.pilot_role && (
+                                                <select
+                                                    value={
+                                                        pilotRoleAssignments[
+                                                            crew.id
+                                                        ] ?? ''
+                                                    }
+                                                    onChange={(event) =>
+                                                        setPilotRoleAssignments(
+                                                            (assignments) => ({
+                                                                ...assignments,
+                                                                [crew.id]: event
+                                                                    .target
+                                                                    .value as
+                                                                    | 'PIC'
+                                                                    | 'SIC'
+                                                                    | '',
+                                                            }),
+                                                        )
+                                                    }
+                                                    aria-label={`Role proficiency check ${crew.name}`}
+                                                    required
+                                                >
+                                                    <option value="">
+                                                        Pilih PIC atau SIC
+                                                    </option>
+                                                    <option value="PIC">
+                                                        PIC
+                                                    </option>
+                                                    <option value="SIC">
+                                                        SIC
+                                                    </option>
+                                                </select>
+                                            )}
+                                            <select
+                                                value={
+                                                    aircraftAssignments[crew.id] ??
+                                                    ''
+                                                }
+                                                onChange={(event) =>
+                                                    setAircraftAssignments(
+                                                        (assignments) => ({
+                                                            ...assignments,
+                                                            [crew.id]:
+                                                                event.target.value,
+                                                        }),
+                                                    )
+                                                }
+                                                aria-label={`Kelompok pesawat ${crew.name}`}
+                                            >
+                                                <option value="">
+                                                    Pilih pesawat
+                                                </option>
+                                                {data.aircrafts.map(
+                                                    (aircraft) => (
+                                                        <option
+                                                            key={aircraft.id}
+                                                            value={aircraft.id}
+                                                        >
+                                                            {aircraft.label}
+                                                        </option>
+                                                    ),
+                                                )}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost"
+                                                disabled={
+                                                    !aircraftAssignments[
+                                                        crew.id
+                                                    ] ||
+                                                    (!crew.pilot_role &&
+                                                        !pilotRoleAssignments[
+                                                            crew.id
+                                                        ]) ||
+                                                    assigningCrewId !== null
+                                                }
+                                                onClick={() =>
+                                                    void assignCrewAircraft(
+                                                        crew.id,
+                                                    )
+                                                }
+                                            >
+                                                {assigningCrewId === crew.id
+                                                    ? 'Menyimpan…'
+                                                    : 'Tetapkan'}
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
                         </section>
                     )}
                     <div className="training-stats">

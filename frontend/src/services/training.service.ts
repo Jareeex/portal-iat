@@ -28,9 +28,14 @@ export const trainingService = {
             .then((response) => response.data),
     removeAircraft: (aircraftId: number) =>
         api.delete(`/training/aircraft/${aircraftId}`),
-    addCrewAircraft: (crewId: number, aircraftId: number) =>
+    addCrewAircraft: (
+        crewId: number,
+        aircraftId: number,
+        pilotRole?: 'PIC' | 'SIC',
+    ) =>
         api.post(`/training/crews/${crewId}/aircrafts`, {
             aircraft_id: aircraftId,
+            ...(pilotRole ? { pilot_role: pilotRole } : {}),
         }),
     removeCrewAircraft: (crewId: number, aircraftId: number) =>
         api.delete(`/training/crews/${crewId}/aircrafts/${aircraftId}`),
@@ -81,7 +86,7 @@ export const trainingService = {
                 responseType: 'blob',
             })
             .then((response) => response.data),
-    importCsv: (file: File) => {
+    importExcel: (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
         return api

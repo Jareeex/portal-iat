@@ -16,14 +16,14 @@ class EmployeeResource extends JsonResource
     ];
 
     private const PLAIN = [
-        'id', 'user_id', 'employee_number', 'job_title', 'office', 'employment_status',
+        'id', 'user_id', 'name', 'employee_number', 'job_title', 'office', 'employment_status',
         'place_of_birth', 'gender', 'marital_status', 'religion', 'address', 'phone',
         'ktp_place', 'passport_place', 'weight_kg', 'height_cm', 'blood_type',
         'highest_education', 'education_institution', 'education_major', 'graduated_year',
     ];
 
     private const LIST_FIELDS = [
-        'id', 'user_id', 'employee_number', 'job_title', 'office', 'employment_status', 'join_date', 'end_date',
+        'id', 'user_id', 'name', 'employee_number', 'job_title', 'office', 'employment_status', 'join_date', 'end_date',
     ];
 
     /** @return array<string, mixed> */
@@ -40,7 +40,9 @@ class EmployeeResource extends JsonResource
             }
         }
 
-        return $data + [
+        return [
+            ...$data,
+            'name' => $employee->user?->name ?? $employee->name,
             ...($list ? [] : [
                 'age' => $employee->age,
                 'photo_url' => $employee->photo_url,
@@ -48,14 +50,14 @@ class EmployeeResource extends JsonResource
                 'passport_number' => $employee->passport_number ? Str::mask($employee->passport_number, '*', 0, -4) : null,
                 'npwp_number' => $employee->npwp_number ? Str::mask($employee->npwp_number, '*', 0, -4) : null,
             ]),
-            'user' => $this->whenLoaded('user', fn () => [
+            'user' => $this->whenLoaded('user', fn () => $employee->user ? [
                 'id' => $employee->user->getKey(),
                 'name' => $employee->user->name,
                 'email' => $employee->user->email,
                 'role' => $employee->user->role,
                 'is_active' => $employee->user->is_active,
                 'department' => $employee->user->department?->only(['id', 'name', 'code']),
-            ]),
+            ] : null),
             'experiences' => $this->whenLoaded('experiences'),
             'created_at' => $employee->created_at,
             'updated_at' => $employee->updated_at,

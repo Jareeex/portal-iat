@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { Alert, Loader } from '../../components/common/Feedback';
 import { Field } from '../../components/common/Field';
 import { Modal } from '../../components/common/Modal';
@@ -15,6 +14,7 @@ import { errorMessage } from '../../utils/error';
 import type { Department, EmployeeProfile } from '../../types';
 
 interface EmployeeForm {
+    name: string;
     employee_number: string;
     job_title: string;
     office: string;
@@ -24,6 +24,7 @@ interface EmployeeForm {
 }
 
 const emptyForm: EmployeeForm = {
+    name: '',
     employee_number: '',
     job_title: '',
     office: '',
@@ -41,7 +42,7 @@ const employmentStatuses = [
 ];
 
 export default function EmployeesPage() {
-    const { isMaster, canEdit } = usePermission();
+    const { canEdit } = usePermission();
     const canEditEmployees = canEdit('hr-employees');
     const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
@@ -55,6 +56,7 @@ export default function EmployeesPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [editing, setEditing] = useState<EmployeeProfile | null>(null);
+    const [creating, setCreating] = useState(false);
     const [form, setForm] = useState<EmployeeForm>(emptyForm);
     const [formError, setFormError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -93,8 +95,10 @@ export default function EmployeesPage() {
     }, []);
 
     function openEdit(employee: EmployeeProfile) {
+        setCreating(false);
         setEditing(employee);
         setForm({
+            name: employee.name,
             employee_number: employee.employee_number ?? '',
             job_title: employee.job_title ?? '',
             office: employee.office ?? '',
@@ -105,9 +109,16 @@ export default function EmployeesPage() {
         setFormError(null);
     }
 
+    function openCreate() {
+        setEditing(null);
+        setCreating(true);
+        setForm(emptyForm);
+        setFormError(null);
+    }
+
     async function onSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        if (!editing) return;
+        if (!editing && !creating) return;
 
         setSaving(true);
         setFormError(null);
@@ -121,8 +132,21 @@ export default function EmployeesPage() {
         };
 
         try {
-            await employeeService.update(editing.id, payload);
+            if (editing) {
+                await employeeService.update(
+                    editing.id,
+                    editing.user_id === null
+                        ? { ...payload, name: form.name.trim() }
+                        : payload,
+                );
+            } else {
+                await employeeService.create({
+                    ...payload,
+                    name: form.name.trim(),
+                });
+            }
             setEditing(null);
+            setCreating(false);
             await load();
         } catch (saveError) {
             setFormError(errorMessage(saveError));
@@ -136,8 +160,10 @@ export default function EmployeesPage() {
             header: 'Karyawan / akun',
             render: (employee) => (
                 <div>
-                    <strong>{employee.user.name}</strong>
-                    <div className="muted">{employee.user.email}</div>
+                    <strong>{employee.name}</strong>
+                    <div className="muted">
+                        {employee.user?.email ?? 'Belum terhubung ke akun'}
+                    </div>
                 </div>
             ),
         },
@@ -158,33 +184,37 @@ export default function EmployeesPage() {
         {
             header: 'Departemen',
             render: (employee) =>
-                employee.user.department?.name ?? (
+                employee.user?.department?.name ?? (
                     <span className="muted">-</span>
                 ),
         },
         {
             header: 'Akun',
             render: (employee) => (
-                <div>
-                    <span
-                        className={
-                            employee.user.role === 'master'
-                                ? 'badge badge-accent'
-                                : 'badge'
-                        }
-                    >
-                        {employee.user.role}
-                    </span>{' '}
-                    <span
-                        className={
-                            employee.user.is_active
-                                ? 'badge badge-ok'
-                                : 'badge badge-off'
-                        }
-                    >
-                        {employee.user.is_active ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                </div>
+                employee.user ? (
+                    <div>
+                        <span
+                            className={
+                                employee.user.role === 'master'
+                                    ? 'badge badge-accent'
+                                    : 'badge'
+                            }
+                        >
+                            {employee.user.role}
+                        </span>{' '}
+                        <span
+                            className={
+                                employee.user.is_active
+                                    ? 'badge badge-ok'
+                                    : 'badge badge-off'
+                            }
+                        >
+                            {employee.user.is_active ? 'Aktif' : 'Nonaktif'}
+                        </span>
+                    </div>
+                ) : (
+                    <span className="badge badge-off">Belum terhubung</span>
+                )
             ),
         },
         {
@@ -221,14 +251,18 @@ export default function EmployeesPage() {
                 <div>
                     <h2>Employees</h2>
                     <p className="muted">
-                        Satu akun User = satu profil karyawan, termasuk akun
-                        Master. Total: {total}
+                        HR dapat membuat profil employee; akun dapat
+                        dihubungkan oleh Master. Total: {total}
                     </p>
                 </div>
-                {isMaster && (
-                    <Link className="btn btn-primary" to="/master/users">
-                        Kelola akun
-                    </Link>
+                {canEditEmployees && (
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={openCreate}
+                    >
+                        + Tambah employee
+                    </button>
                 )}
             </div>
 
@@ -303,17 +337,47 @@ export default function EmployeesPage() {
                 </>
             )}
 
-            {editing && (
+            {(editing || creating) && (
                 <Modal
-                    title={`Profil karyawan · ${editing.user.name}`}
-                    onClose={() => setEditing(null)}
+                    title={
+                        editing
+                            ? `Profil karyawan · ${editing.name}`
+                            : 'Tambah employee'
+                    }
+                    onClose={() => {
+                        setEditing(null);
+                        setCreating(false);
+                    }}
                 >
                     <form onSubmit={onSubmit} className="form">
                         {formError && <Alert>{formError}</Alert>}
-                        <p className="muted">
-                            Nama, email, role, dan departemen akun dikelola di
-                            Master Panel → Users.
-                        </p>
+                        {creating || editing?.user_id === null ? (
+                            <>
+                                <Field label="Nama employee">
+                                    <input
+                                        value={form.name}
+                                        onChange={(event) =>
+                                            setForm({
+                                                ...form,
+                                                name: event.target.value,
+                                            })
+                                        }
+                                        required
+                                    />
+                                </Field>
+                                {creating && (
+                                    <p className="muted">
+                                        Profil ini belum memiliki akun. Master
+                                        dapat menghubungkannya saat membuat akun
+                                        di menu Users.
+                                    </p>
+                                )}
+                            </>
+                        ) : (
+                            <p className="muted">
+                                Nama dan akun dikelola di Master Panel → Users.
+                            </p>
+                        )}
                         <Field label="Nomor pegawai">
                             <input
                                 value={form.employee_number}

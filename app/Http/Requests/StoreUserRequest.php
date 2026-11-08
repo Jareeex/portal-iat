@@ -29,6 +29,9 @@ class StoreUserRequest extends FormRequest
             'role' => ['sometimes', Rule::in([User::ROLE_MASTER, User::ROLE_USER])],
             'is_active' => ['sometimes', 'boolean'],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
+            'employee_id' => $isUpdate
+                ? ['prohibited']
+                : ['nullable', 'integer', Rule::exists('employees', 'id')->whereNull('user_id')],
         ];
     }
 }

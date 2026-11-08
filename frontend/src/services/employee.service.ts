@@ -1,5 +1,9 @@
 import api from './api';
-import type { EmployeeProfile, Paginated } from '../types';
+import type {
+    EmployeeLinkOption,
+    EmployeeProfile,
+    Paginated,
+} from '../types';
 
 export interface EmployeeListParams {
     q?: string;
@@ -9,6 +13,7 @@ export interface EmployeeListParams {
 }
 
 export interface EmployeeProfilePayload {
+    name?: string;
     employee_number: string | null;
     job_title: string | null;
     office: string | null;
@@ -17,10 +22,24 @@ export interface EmployeeProfilePayload {
     end_date: string | null;
 }
 
+export interface NewEmployeePayload extends EmployeeProfilePayload {
+    name: string;
+}
+
 export const employeeService = {
     list: (params: EmployeeListParams = {}) =>
         api
             .get<Paginated<EmployeeProfile>>('/hr/employees', { params })
+            .then((response) => response.data),
+
+    unlinked: () =>
+        api
+            .get<EmployeeLinkOption[]>('/hr/employees/unlinked')
+            .then((response) => response.data),
+
+    create: (payload: NewEmployeePayload) =>
+        api
+            .post<EmployeeProfile>('/hr/employees', payload)
             .then((response) => response.data),
 
     update: (id: number, payload: EmployeeProfilePayload) =>

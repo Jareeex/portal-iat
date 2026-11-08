@@ -53,7 +53,8 @@ export interface ManagedPage extends PortalPage {
 
 export interface EmployeeProfile {
     id: number;
-    user_id: number;
+    user_id: number | null;
+    name: string;
     employee_number: string | null;
     job_title: string | null;
     office: string | null;
@@ -67,7 +68,12 @@ export interface EmployeeProfile {
         role: Role;
         is_active: boolean;
         department: DepartmentRef | null;
-    };
+    } | null;
+}
+
+export interface EmployeeLinkOption {
+    id: number;
+    name: string;
 }
 
 export interface Paginated<T> {
