@@ -7,11 +7,19 @@ use Illuminate\Validation\Rule;
 class EmployeeRules
 {
     /** @return array<string, list<mixed>> */
-    public static function employment(?int $ignoreId = null): array
+    public static function employment(?int $ignoreId = null, ?string $currentJobTitle = null): array
     {
         return [
             'employee_number' => ['nullable', 'string', 'max:50', Rule::unique('employees', 'employee_number')->ignore($ignoreId)],
-            'job_title' => ['nullable', 'string', 'max:120'],
+            'job_title' => [
+                'nullable',
+                Rule::exists('job_positions', 'name')->where(function ($query) use ($currentJobTitle): void {
+                    $query->where('is_active', true);
+                    if ($currentJobTitle !== null) {
+                        $query->orWhere('name', $currentJobTitle);
+                    }
+                }),
+            ],
             'office' => ['nullable', 'string', 'max:120'],
             'employment_status' => ['nullable', Rule::in(config('hr.options.employment_statuses'))],
             'join_date' => ['nullable', 'date'],

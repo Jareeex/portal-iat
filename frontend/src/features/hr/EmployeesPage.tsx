@@ -8,10 +8,11 @@ import { usePermission } from '../../hooks/usePermission';
 import { departmentService } from '../../services/department.service';
 import {
     employeeService,
+    type JobPositionPayload,
     type EmployeeProfilePayload,
 } from '../../services/employee.service';
 import { errorMessage } from '../../utils/error';
-import type { Department, EmployeeProfile } from '../../types';
+import type { Department, EmployeeProfile, JobPosition } from '../../types';
 
 interface EmployeeForm {
     name: string;
@@ -41,11 +42,19 @@ const employmentStatuses = [
     'Resign',
 ];
 
+const emptyPositionForm: JobPositionPayload = {
+    name: '',
+    sort_order: 1,
+    is_active: true,
+    is_leave_manager: false,
+};
+
 export default function EmployeesPage() {
-    const { canEdit } = usePermission();
-    const canEditEmployees = canEdit('hr-employees');
+    const { canEdit, isMaster } = usePermission();
+    const canEditEmployees = isMaster || canEdit('hr-employees');
     const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
+    const [positions, setPositions] = useState<JobPosition[]>([]);
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
     const [total, setTotal] = useState(0);
@@ -60,6 +69,12 @@ export default function EmployeesPage() {
     const [form, setForm] = useState<EmployeeForm>(emptyForm);
     const [formError, setFormError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [positionEditing, setPositionEditing] = useState<JobPosition | null>(null);
+    const [positionModalOpen, setPositionModalOpen] = useState(false);
+    const [positionForm, setPositionForm] =
+        useState<JobPositionPayload>(emptyPositionForm);
+    const [positionError, setPositionError] = useState<string | null>(null);
+    const [positionSaving, setPositionSaving] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -93,6 +108,20 @@ export default function EmployeesPage() {
                 setError(errorMessage(loadError));
             });
     }, []);
+
+    const loadPositions = useCallback(async () => {
+        if (!canEditEmployees) return;
+
+        try {
+            setPositions(await employeeService.jobPositions());
+        } catch (loadError) {
+            setError(errorMessage(loadError));
+        }
+    }, [canEditEmployees]);
+
+    useEffect(() => {
+        void loadPositions();
+    }, [loadPositions]);
 
     function openEdit(employee: EmployeeProfile) {
         setCreating(false);
@@ -152,6 +181,45 @@ export default function EmployeesPage() {
             setFormError(errorMessage(saveError));
         } finally {
             setSaving(false);
+        }
+    }
+
+    function openPosition(position?: JobPosition) {
+        setPositionEditing(position ?? null);
+        setPositionModalOpen(true);
+        setPositionForm(
+            position
+                ? {
+                      name: position.name,
+                      sort_order: position.sort_order,
+                      is_active: position.is_active,
+                      is_leave_manager: position.is_leave_manager,
+                  }
+                : { ...emptyPositionForm, sort_order: positions.length + 1 },
+        );
+        setPositionError(null);
+    }
+
+    async function onPositionSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setPositionSaving(true);
+        setPositionError(null);
+        try {
+            if (positionEditing) {
+                await employeeService.updateJobPosition(
+                    positionEditing.id,
+                    positionForm,
+                );
+            } else {
+                await employeeService.createJobPosition(positionForm);
+            }
+            setPositionEditing(null);
+            setPositionModalOpen(false);
+            await Promise.all([loadPositions(), load()]);
+        } catch (saveError) {
+            setPositionError(errorMessage(saveError));
+        } finally {
+            setPositionSaving(false);
         }
     }
 
@@ -265,6 +333,78 @@ export default function EmployeesPage() {
                     </button>
                 )}
             </div>
+
+            {canEditEmployees && (
+                <section className="panel position-panel">
+                    <div className="page-head page-head-row">
+                        <div>
+                            <h3>Struktur jabatan</h3>
+                            <p className="muted">
+                                Atur urutan jabatan dan siapa yang dapat menjadi
+                                approver cuti.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => openPosition()}
+                        >
+                            + Tambah jabatan
+                        </button>
+                    </div>
+                    <DataTable
+                        columns={[
+                            {
+                                header: 'Urutan',
+                                render: (position) => position.sort_order,
+                            },
+                            {
+                                header: 'Jabatan',
+                                render: (position) => position.name,
+                            },
+                            {
+                                header: 'Status',
+                                render: (position) => (
+                                    <span
+                                        className={
+                                            position.is_active
+                                                ? 'badge badge-ok'
+                                                : 'badge badge-off'
+                                        }
+                                    >
+                                        {position.is_active
+                                            ? 'Aktif'
+                                            : 'Nonaktif'}
+                                    </span>
+                                ),
+                            },
+                            {
+                                header: 'Approver cuti',
+                                render: (position) =>
+                                    position.is_leave_manager
+                                        ? 'Ya'
+                                        : 'Tidak',
+                            },
+                            {
+                                header: 'Aksi',
+                                width: '90px',
+                                render: (position) => (
+                                    <button
+                                        type="button"
+                                        className="btn btn-ghost"
+                                        onClick={() => openPosition(position)}
+                                    >
+                                        Edit
+                                    </button>
+                                ),
+                            },
+                        ]}
+                        rows={positions}
+                        rowKey={(position) => position.id}
+                        empty="Jabatan belum tersedia."
+                    />
+                </section>
+            )}
 
             <form
                 className="toolbar"
@@ -390,7 +530,7 @@ export default function EmployeesPage() {
                             />
                         </Field>
                         <Field label="Jabatan">
-                            <input
+                            <select
                                 value={form.job_title}
                                 onChange={(event) =>
                                     setForm({
@@ -398,7 +538,26 @@ export default function EmployeesPage() {
                                         job_title: event.target.value,
                                     })
                                 }
-                            />
+                            >
+                                <option value="">Belum ditentukan</option>
+                                {positions
+                                    .filter(
+                                        (position) =>
+                                            position.is_active ||
+                                            position.name === form.job_title,
+                                    )
+                                    .map((position) => (
+                                        <option
+                                            key={position.id}
+                                            value={position.name}
+                                        >
+                                            {position.name}
+                                            {position.is_active
+                                                ? ''
+                                                : ' (nonaktif)'}
+                                        </option>
+                                    ))}
+                            </select>
                         </Field>
                         <Field label="Kantor">
                             <input
@@ -473,6 +632,103 @@ export default function EmployeesPage() {
                         </div>
                     </form>
                 </Modal>
+            )}
+            {positionModalOpen && (
+                    <Modal
+                        title={
+                            positionEditing
+                                ? `Edit jabatan · ${positionEditing.name}`
+                                : 'Tambah jabatan'
+                        }
+                        onClose={() => {
+                            setPositionEditing(null);
+                            setPositionModalOpen(false);
+                            setPositionError(null);
+                        }}
+                    >
+                        <form className="form" onSubmit={onPositionSubmit}>
+                            {positionError && <Alert>{positionError}</Alert>}
+                            <Field label="Nama jabatan">
+                                <input
+                                    value={positionForm.name}
+                                    onChange={(event) =>
+                                        setPositionForm({
+                                            ...positionForm,
+                                            name: event.target.value,
+                                        })
+                                    }
+                                    maxLength={120}
+                                    required
+                                />
+                            </Field>
+                            <Field label="Urutan hierarki (kecil ke besar)">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={999}
+                                    value={positionForm.sort_order}
+                                    onChange={(event) =>
+                                        setPositionForm({
+                                            ...positionForm,
+                                            sort_order: Number(
+                                                event.target.value,
+                                            ),
+                                        })
+                                    }
+                                    required
+                                />
+                            </Field>
+                            <label className="check">
+                                <input
+                                    type="checkbox"
+                                    checked={positionForm.is_active}
+                                    onChange={(event) =>
+                                        setPositionForm({
+                                            ...positionForm,
+                                            is_active: event.target.checked,
+                                        })
+                                    }
+                                />
+                                Aktif untuk dipilih sebagai jabatan karyawan
+                            </label>
+                            <label className="check">
+                                <input
+                                    type="checkbox"
+                                    checked={positionForm.is_leave_manager}
+                                    onChange={(event) =>
+                                        setPositionForm({
+                                            ...positionForm,
+                                            is_leave_manager:
+                                                event.target.checked,
+                                        })
+                                    }
+                                />
+                                Dapat dipilih sebagai approver cuti
+                            </label>
+                            <div className="modal-actions">
+                                <button
+                                    type="button"
+                                    className="btn btn-ghost"
+                                    onClick={() => {
+                                        setPositionEditing(null);
+                                        setPositionModalOpen(false);
+                                        setPositionError(null);
+                                    }}
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={positionSaving}
+                                >
+                                    {positionSaving
+                                        ? 'Menyimpan...'
+                                        : 'Simpan jabatan'}
+                                </button>
+                            </div>
+                        </form>
+                    </Modal>
             )}
         </div>
     );

@@ -2,6 +2,7 @@ import api from './api';
 import type {
     EmployeeLinkOption,
     EmployeeProfile,
+    JobPosition,
     Paginated,
 } from '../types';
 
@@ -26,6 +27,13 @@ export interface NewEmployeePayload extends EmployeeProfilePayload {
     name: string;
 }
 
+export interface JobPositionPayload {
+    name: string;
+    sort_order: number;
+    is_active: boolean;
+    is_leave_manager: boolean;
+}
+
 export const employeeService = {
     list: (params: EmployeeListParams = {}) =>
         api
@@ -45,5 +53,20 @@ export const employeeService = {
     update: (id: number, payload: EmployeeProfilePayload) =>
         api
             .put<EmployeeProfile>(`/hr/employees/${id}`, payload)
+            .then((response) => response.data),
+
+    jobPositions: () =>
+        api
+            .get<JobPosition[]>('/hr/job-positions')
+            .then((response) => response.data),
+
+    createJobPosition: (payload: JobPositionPayload) =>
+        api
+            .post<JobPosition>('/hr/job-positions', payload)
+            .then((response) => response.data),
+
+    updateJobPosition: (id: number, payload: JobPositionPayload) =>
+        api
+            .put<JobPosition>(`/hr/job-positions/${id}`, payload)
             .then((response) => response.data),
 };

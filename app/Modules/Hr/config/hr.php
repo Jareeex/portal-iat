@@ -9,6 +9,12 @@ return [
 
     'photo_disk' => 'public',
     'per_page' => 15,
+    'leave' => [
+        'exclude_weekends' => true,
+        'holidays' => [],
+        'backdate_days' => 7,
+        'attachment_disk' => 'local',
+    ],
 
     'options' => [
         'genders' => ['Laki-laki', 'Perempuan'],

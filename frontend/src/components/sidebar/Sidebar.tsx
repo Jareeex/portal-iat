@@ -5,6 +5,7 @@ export interface NavItem {
     to: string;
     label: string;
     icon?: string;
+    badge?: number;
 }
 
 interface SidebarProps {
@@ -44,6 +45,9 @@ export function Sidebar({
                     >
                         <NavIcon name={item.icon ?? item.label} />
                         {item.label}
+                        {item.badge !== undefined && item.badge > 0 && (
+                            <span className="nav-badge">{item.badge}</span>
+                        )}
                     </NavLink>
                 ))}
             </nav>

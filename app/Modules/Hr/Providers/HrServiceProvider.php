@@ -5,7 +5,9 @@ namespace App\Modules\Hr\Providers;
 use App\Models\User;
 use App\Modules\Hr\Console\SyncEmployees;
 use App\Modules\Hr\Models\Employee;
+use App\Modules\Hr\Models\LeaveRequest;
 use App\Modules\Hr\Policies\EmployeePolicy;
+use App\Modules\Hr\Policies\LeaveRequestPolicy;
 use App\Services\AccessService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -28,6 +30,7 @@ class HrServiceProvider extends ServiceProvider
         $this->loadRoutesFrom($this->base('routes/hr.php'));
 
         Gate::policy(Employee::class, EmployeePolicy::class);
+        Gate::policy(LeaveRequest::class, LeaveRequestPolicy::class);
 
         if (! Gate::has('hr.manage')) {
             Gate::define('hr.manage', fn (User $user): bool => app(AccessService::class)->canEdit($user, 'hr-employees'));

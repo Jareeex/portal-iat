@@ -10,6 +10,10 @@ import UsersPage from '../features/users/UsersPage';
 import DepartmentsPage from '../features/departments/DepartmentsPage';
 import PagesPage from '../features/pages/PagesPage';
 import AccessPage from '../features/access-management/AccessPage';
+import LeaveRequestsPage from '../features/hr/LeaveRequestsPage';
+import ItTicketsPage from '../features/it-tickets/ItTicketsPage';
+import TicketCreatePage from '../features/it-tickets/TicketCreatePage';
+import TicketDetailPage from '../features/it-tickets/TicketDetailPage';
 
 export const router = createBrowserRouter([
     {
@@ -28,6 +32,13 @@ export const router = createBrowserRouter([
                         element: <Navigate to="/dashboard" replace />,
                     },
                     { path: '/dashboard', element: <DashboardPage /> },
+                    { path: '/leave-request', element: <LeaveRequestsPage /> },
+                    { path: '/it/tickets', element: <ItTicketsPage /> },
+                    { path: '/it/tickets/new', element: <TicketCreatePage /> },
+                    {
+                        path: '/it/tickets/:ticketId',
+                        element: <TicketDetailPage />,
+                    },
                     { path: '*', element: <PortalPage /> },
                 ],
             },
