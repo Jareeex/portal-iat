@@ -5,11 +5,17 @@ import { departmentService } from '../../services/department.service';
 import { errorMessage } from '../../utils/error';
 import { useAuth } from '../../hooks/useAuth';
 import { Alert, Loader } from '../../components/common/Feedback';
+import { employeeService } from '../../services/employee.service';
 import { Modal } from '../../components/common/Modal';
 import { Field } from '../../components/common/Field';
 import { DataTable, type Column } from '../../components/tables/DataTable';
 import { Pagination } from '../../components/tables/Pagination';
-import type { Department, ManagedUser, Role } from '../../types';
+import type {
+    Department,
+    EmployeeLinkOption,
+    ManagedUser,
+    Role,
+} from '../../types';
 
 interface FormState {
     name: string;
@@ -18,6 +24,7 @@ interface FormState {
     role: Role;
     is_active: boolean;
     department_id: number | '';
+    employee_id: number | '';
 }
 
 const emptyForm: FormState = {
@@ -27,6 +34,7 @@ const emptyForm: FormState = {
     role: 'user',
     is_active: true,
     department_id: '',
+    employee_id: '',
 };
 
 export default function UsersPage() {
@@ -35,6 +43,12 @@ export default function UsersPage() {
 
     const [users, setUsers] = useState<ManagedUser[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
+    const [unlinkedEmployees, setUnlinkedEmployees] = useState<
+        EmployeeLinkOption[]
+    >([]);
+    const [employeeOptionsError, setEmployeeOptionsError] = useState<
+        string | null
+    >(null);
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
     const [total, setTotal] = useState(0);
@@ -85,7 +99,18 @@ export default function UsersPage() {
         setEditing(null);
         setForm(emptyForm);
         setFormError(null);
+        setUnlinkedEmployees([]);
+        void loadUnlinkedEmployees();
         setShowForm(true);
+    }
+
+    async function loadUnlinkedEmployees(): Promise<void> {
+        setEmployeeOptionsError(null);
+        try {
+            setUnlinkedEmployees(await employeeService.unlinked());
+        } catch (cause) {
+            setEmployeeOptionsError(errorMessage(cause));
+        }
     }
 
     function openEdit(u: ManagedUser) {
@@ -97,8 +122,10 @@ export default function UsersPage() {
             role: u.role,
             is_active: u.is_active,
             department_id: u.department_id ?? '',
+            employee_id: '',
         });
         setFormError(null);
+        setEmployeeOptionsError(null);
         setShowForm(true);
     }
 
@@ -115,6 +142,9 @@ export default function UsersPage() {
             department_id:
                 form.department_id === '' ? null : form.department_id,
         };
+        if (!editing && form.employee_id !== '') {
+            payload.employee_id = form.employee_id;
+        }
         if (form.password) payload.password = form.password;
 
         try {
@@ -303,6 +333,9 @@ export default function UsersPage() {
                 >
                     <form onSubmit={onSubmit} className="form">
                         {formError && <Alert>{formError}</Alert>}
+                        {employeeOptionsError && (
+                            <Alert>{employeeOptionsError}</Alert>
+                        )}
 
                         <Field label="Nama">
                             <input
@@ -324,6 +357,40 @@ export default function UsersPage() {
                                 required
                             />
                         </Field>
+
+                        {!editing && (
+                            <Field
+                                label="Employee yang dihubungkan"
+                                hint="Opsional. Pilih profil yang sudah dibuat HR, jika akun ini milik employee tersebut."
+                            >
+                                <select
+                                    value={form.employee_id}
+                                    onChange={(event) =>
+                                        setForm({
+                                            ...form,
+                                            employee_id:
+                                                event.target.value === ''
+                                                    ? ''
+                                                    : Number(
+                                                          event.target.value,
+                                                      ),
+                                        })
+                                    }
+                                >
+                                    <option value="">
+                                        - Tidak dihubungkan -
+                                    </option>
+                                    {unlinkedEmployees.map((employee) => (
+                                        <option
+                                            key={employee.id}
+                                            value={employee.id}
+                                        >
+                                            {employee.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
+                        )}
 
                         <Field
                             label="Password"

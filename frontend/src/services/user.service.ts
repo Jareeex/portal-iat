@@ -8,6 +8,7 @@ export interface UserPayload {
     role: Role;
     is_active: boolean;
     department_id: number | null;
+    employee_id?: number | null;
 }
 
 export interface UserListParams {

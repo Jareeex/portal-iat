@@ -12,6 +12,12 @@ Route::middleware(config('hr.route.middleware'))
         Route::get('employees', [EmployeeController::class, 'index'])
             ->middleware('page.access:hr-employees')
             ->name('employees.index');
+        Route::get('employees/unlinked', [EmployeeController::class, 'unlinked'])
+            ->middleware('role.master')
+            ->name('employees.unlinked');
+        Route::post('employees', [EmployeeController::class, 'store'])
+            ->middleware('page.access:hr-employees,edit')
+            ->name('employees.store');
         Route::get('employees/{employee}', [EmployeeController::class, 'show'])
             ->name('employees.show');
         Route::put('employees/{employee}', [EmployeeController::class, 'update'])

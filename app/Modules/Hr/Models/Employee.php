@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
- * @property int $user_id
+ * @property int|null $user_id
+ * @property string|null $name
  * @property string|null $employee_number
  * @property string|null $job_title
  * @property string|null $office
@@ -123,7 +124,8 @@ class Employee extends Model
         }
 
         return $query->where(function ($q) use ($term) {
-            $q->where('employee_number', 'like', "%{$term}%")
+            $q->where('name', 'like', "%{$term}%")
+                ->orWhere('employee_number', 'like', "%{$term}%")
                 ->orWhere('job_title', 'like', "%{$term}%")
                 ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$term}%")
                     ->orWhere('email', 'like', "%{$term}%")

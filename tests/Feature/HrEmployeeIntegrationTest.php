@@ -3,6 +3,8 @@
 use App\Models\Department;
 use App\Models\Page;
 use App\Models\User;
+use App\Modules\Hr\Models\Employee;
+use App\Services\AccessService;
 use Laravel\Sanctum\Sanctum;
 
 test('every account has one employee profile and the directory includes master accounts', function () {
@@ -110,4 +112,84 @@ test('master can assign an employee editor who can update employee records', fun
         'job_title' => 'Training Editor',
     ])->assertOk()
         ->assertJsonPath('data.job_title', 'Training Editor');
+});
+
+test('employee editors can create employees without accounts but viewers cannot', function () {
+    $department = Department::create([
+        'name' => 'Human Resources',
+        'code' => 'HR',
+        'has_full_access' => false,
+    ]);
+    $page = Page::create([
+        'department_id' => $department->id,
+        'key' => 'hr-employees',
+        'name' => 'Employees',
+        'route' => '/hr/employees',
+        'is_active' => true,
+    ]);
+    $editor = User::factory()->create([
+        'department_id' => $department->id,
+        'is_active' => true,
+    ]);
+    app(AccessService::class)->sync($editor, [$page->id], [$page->id]);
+
+    Sanctum::actingAs($editor);
+
+    $response = $this->postJson('/api/hr/employees', [
+        'name' => 'New Employee',
+        'employee_number' => 'IAT-2001',
+        'job_title' => 'HR Specialist',
+        'employment_status' => 'Tetap',
+    ])->assertCreated()
+        ->assertJsonPath('data.name', 'New Employee')
+        ->assertJsonPath('data.user', null)
+        ->assertJsonPath('data.employee_number', 'IAT-2001');
+
+    $employeeId = $response->json('data.id');
+    expect(Employee::findOrFail($employeeId)->user_id)->toBeNull();
+
+    $this->putJson("/api/hr/employees/{$employeeId}", [
+        'name' => 'Updated Employee',
+    ])->assertOk()->assertJsonPath('data.name', 'Updated Employee');
+
+    $viewer = User::factory()->create([
+        'department_id' => $department->id,
+        'is_active' => true,
+    ]);
+    Sanctum::actingAs($viewer);
+
+    $this->postJson('/api/hr/employees', [
+        'name' => 'Unauthorized Employee',
+    ])->assertForbidden();
+    $this->getJson('/api/hr/employees/unlinked')->assertForbidden();
+    $this->postJson('/api/master/users', [
+        'name' => 'Unauthorized Account',
+        'email' => 'unauthorized.account@example.com',
+        'password' => 'password123',
+    ])->assertForbidden();
+});
+
+test('master can link an employee profile when creating its account', function () {
+    $master = User::factory()->create([
+        'role' => User::ROLE_MASTER,
+        'is_active' => true,
+    ]);
+    Sanctum::actingAs($master);
+
+    $employee = $this->postJson('/api/hr/employees', [
+        'name' => 'Linked Employee',
+        'employee_number' => 'IAT-3001',
+        'job_title' => 'Pilot',
+    ])->assertCreated()->json('data');
+
+    $user = $this->postJson('/api/master/users', [
+        'name' => 'Linked Employee',
+        'email' => 'linked.employee@example.com',
+        'password' => 'password123',
+        'employee_id' => $employee['id'],
+    ])->assertCreated()->json();
+
+    expect(Employee::where('user_id', $user['id'])->count())->toBe(1)
+        ->and(Employee::where('user_id', $user['id'])->value('id'))->toBe($employee['id'])
+        ->and(Employee::where('user_id', $user['id'])->value('employee_number'))->toBe('IAT-3001');
 });

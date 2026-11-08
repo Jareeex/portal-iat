@@ -10,9 +10,11 @@ use App\Models\TrainingAircraft;
 use App\Models\TrainingType;
 use App\Models\User;
 use App\Services\AccessService;
+use App\Services\TrainingSpreadsheetImportService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -93,8 +95,25 @@ class TrainingController extends Controller
                 ] + $counts;
             });
 
+        $unassignedCrews = $this->canManage($request)
+            ? Crew::query()
+                ->whereNull('group')
+                ->where('category', 'Pilot')
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'position', 'pilot_role'])
+                ->map(fn (Crew $crew): array => [
+                    'id' => $crew->id,
+                    'name' => $crew->name,
+                    'position' => $crew->position,
+                    'pilot_role' => $crew->pilot_role,
+                ])
+                ->values()
+            : collect();
+
         return response()->json([
             'crews' => $crews,
+            'unassigned_crews' => $unassignedCrews,
             'summary' => [
                 'crew' => $crews->count(),
                 'expired' => $crews->sum('expired'),
@@ -292,13 +311,30 @@ class TrainingController extends Controller
     public function storeCrewAircraft(Request $request, Crew $crew): JsonResponse
     {
         $this->authorizeManage($request);
-        abort_unless(($this->groupsForUi()[$crew->group]['category'] ?? null) === 'Pilot', 422);
+        $isUnassignedPilot = $crew->group === null && $crew->category === 'Pilot';
+        abort_unless($isUnassignedPilot || ($this->groupsForUi()[$crew->group]['category'] ?? null) === 'Pilot', 422);
         $data = $request->validate([
             'aircraft_id' => ['required', 'integer', Rule::exists('training_aircrafts', 'id')
                 ->where('is_active', true)],
+            'pilot_role' => [
+                ...($isUnassignedPilot && $crew->pilot_role === null ? ['required'] : ['sometimes']),
+                'string',
+                Rule::in(['PIC', 'SIC']),
+            ],
         ]);
         $aircraft = TrainingAircraft::query()->findOrFail((int) $data['aircraft_id']);
-        $crew->trainingAircrafts()->syncWithoutDetaching([$aircraft->id]);
+        DB::transaction(function () use ($crew, $aircraft, $isUnassignedPilot, $data): void {
+            if ($isUnassignedPilot) {
+                abort_if($aircraft->group_key === null, 422, 'Pesawat belum memiliki kelompok training.');
+                $crew->update([
+                    'group' => $aircraft->group_key,
+                    'category' => 'Pilot',
+                    'fleet' => $aircraft->name,
+                    'pilot_role' => $data['pilot_role'] ?? $crew->pilot_role,
+                ]);
+            }
+            $crew->trainingAircrafts()->syncWithoutDetaching([$aircraft->id]);
+        });
 
         return response()->json([
             'aircrafts' => $crew->fresh()->trainingAircrafts()
@@ -553,96 +589,22 @@ class TrainingController extends Controller
         }, 'training-record-'.now()->format('Ymd').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    public function import(Request $request): JsonResponse
+    public function import(Request $request, TrainingSpreadsheetImportService $importer): JsonResponse
     {
         $this->authorizeManage($request);
-        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:5120']]);
-
-        $handle = fopen($request->file('file')->getRealPath(), 'r');
-        if ($handle === false) {
-            return response()->json(['message' => 'File tidak dapat dibaca.'], 422);
-        }
-
-        $header = array_map(fn ($value): string => trim(ltrim((string) $value, "\xEF\xBB\xBF")), fgetcsv($handle) ?: []);
-        $required = ['group', 'crew', 'section', 'training', 'last_check', 'next_check', 'plan_check'];
-
-        if (array_diff($required, $header)) {
-            fclose($handle);
-
-            return response()->json(['message' => 'Kolom CSV tidak sesuai. Gunakan file hasil export.'], 422);
-        }
-
-        $crews = Crew::query()
-            ->whereIn('group', array_keys($this->groupsForUi()))
-            ->with('trainingAircrafts')
-            ->get()
-            ->flatMap(function (Crew $crew): array {
-                $groups = $crew->trainingAircrafts->pluck('group_key')->all();
-                if ($groups === []) {
-                    $groups[] = $crew->group;
-                }
-                if (isset(Crew::GROUPS[$crew->group])) {
-                    $groups[] = $crew->group;
-                }
-
-                return collect(array_unique($groups))
-                    ->mapWithKeys(fn (string $group): array => [
-                        $group.'|'.mb_strtolower($crew->name) => $crew,
-                    ])
-                    ->all();
-            });
-        $types = TrainingType::query()->get()->keyBy(
-            fn (TrainingType $type): string => $type->group.'|'.mb_strtolower($type->section.'|'.$type->name),
-        );
-        $processed = 0;
-        $errors = [];
-
-        DB::transaction(function () use ($handle, $header, $crews, $types, &$processed, &$errors): void {
-            for ($line = 2; ($row = fgetcsv($handle)) !== false; $line++) {
-                $values = array_slice(array_pad($row, count($header), null), 0, count($header));
-                $record = array_combine($header, $values);
-                $crew = $crews->get($record['group'].'|'.mb_strtolower(trim((string) $record['crew'])));
-                $type = $types->get($record['group'].'|'.mb_strtolower(trim((string) $record['section'].'|'.(string) $record['training'])));
-
-                if (! $crew || ! $type) {
-                    $errors[] = "baris {$line}: crew atau item training tidak ditemukan";
-
-                    continue;
-                }
-
-                if (! $crew->appliesToTrainingType($type)) {
-                    $errors[] = "baris {$line}: item training tidak berlaku untuk role crew ini";
-
-                    continue;
-                }
-
-                try {
-                    $dates = [];
-                    foreach (['last_check', 'next_check', 'plan_check'] as $key) {
-                        $value = trim((string) $record[$key]);
-                        $dates[$key] = $value === '' ? null : Carbon::parse($value)->toDateString();
-                    }
-                } catch (\Throwable) {
-                    $errors[] = "baris {$line}: format tanggal salah";
-
-                    continue;
-                }
-
-                $keys = ['crew_id' => $crew->id, 'training_type_id' => $type->id];
-                if (! array_filter($dates)) {
-                    CrewTraining::query()->where($keys)->delete();
-                } else {
-                    CrewTraining::updateOrCreate($keys, $dates);
-                }
-                $processed++;
-            }
-        });
-        fclose($handle);
-
-        return response()->json([
-            'message' => 'Import selesai: '.$processed.' baris diproses'.($errors ? ', '.count($errors).' dilewati.' : '.'),
-            'errors' => array_slice($errors, 0, 3),
+        $data = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx', 'extensions:xlsx', 'max:5120'],
         ]);
+        $file = $request->file('file');
+        if (! $file instanceof UploadedFile) {
+            abort(422, 'File Excel tidak valid.');
+        }
+
+        try {
+            return response()->json($importer->import($file));
+        } catch (\InvalidArgumentException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
     }
 
     /** @return array<string, mixed> */
