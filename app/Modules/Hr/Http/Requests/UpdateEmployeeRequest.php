@@ -21,7 +21,7 @@ class UpdateEmployeeRequest extends FormRequest
         abort_unless($employee instanceof Employee, 404);
 
         $rules = array_merge(
-            EmployeeRules::employment($employee->id),
+            EmployeeRules::employment($employee->id, $employee->job_title),
             EmployeeRules::personal(),
         );
 

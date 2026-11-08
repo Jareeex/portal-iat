@@ -76,6 +76,63 @@ export interface EmployeeLinkOption {
     name: string;
 }
 
+export interface JobPosition {
+    id: number;
+    name: string;
+    sort_order: number;
+    is_active: boolean;
+    is_leave_manager: boolean;
+}
+
+export interface LeaveManagerOption {
+    id: number;
+    name: string;
+    job_title: string;
+}
+
+export type LeaveStatus =
+    | 'manager_pending'
+    | 'hr_pending'
+    | 'manager_rejected'
+    | 'approved'
+    | 'rejected'
+    | 'cancelled';
+
+export interface LeaveType {
+    id: number;
+    name: string;
+    annual_quota_days: number | null;
+    requires_attachment: boolean;
+    is_paid: boolean;
+}
+
+export interface LeaveRequest {
+    id: number;
+    status: LeaveStatus;
+    start_date: string;
+    end_date: string;
+    days: number;
+    reason: string;
+    contact_phone: string | null;
+    attachment_url: string | null;
+    leave_type: Pick<LeaveType, 'id' | 'name' | 'is_paid'>;
+    employee: {
+        id: number;
+        user_id: number | null;
+        employee_number: string | null;
+        name: string | null;
+        department: string | null;
+    };
+    manager: { id: number; name: string } | null;
+    manager_reviewed_by: string | null;
+    manager_reviewed_at: string | null;
+    manager_review_note: string | null;
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+    review_note: string | null;
+    created_at: string;
+}
+
 export interface Paginated<T> {
     data: T[];
     current_page: number;
