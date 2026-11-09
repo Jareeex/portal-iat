@@ -644,6 +644,16 @@ export default function TrainingCrewDetailPage({
                 </section>
             )}
 
+            {data.sections.length === 0 && (
+                <section className="panel">
+                    <h3>Data training belum tersedia</h3>
+                    <p className="muted">
+                        Katalog training untuk crew atau pesawat ini belum
+                        dimuat. Hubungi admin untuk menyiapkannya.
+                    </p>
+                </section>
+            )}
+
             {data.sections.map((section) => (
                 <section className="training-section" key={section.section}>
                     <h3>{section.section}</h3>

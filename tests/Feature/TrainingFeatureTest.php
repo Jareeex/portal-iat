@@ -7,9 +7,18 @@ use App\Models\Page;
 use App\Models\TrainingAircraft;
 use App\Models\TrainingType;
 use App\Models\User;
+use Database\Seeders\TrainingTypeSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+
+test('training type catalog can be seeded without importing crew records', function () {
+    $this->seed(TrainingTypeSeeder::class);
+
+    expect(TrainingType::query()->count())->toBeGreaterThan(0)
+        ->and(Crew::query()->count())->toBe(0)
+        ->and(CrewTraining::query()->count())->toBe(0);
+});
 
 test('users with training page access can view crew training status', function () {
     $department = Department::create([

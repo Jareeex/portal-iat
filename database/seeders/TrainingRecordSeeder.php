@@ -27,14 +27,17 @@ class TrainingRecordSeeder extends Seeder
         }
 
         $data = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        $this->call(TrainingTypeSeeder::class);
+
         $typeIds = [];
 
         foreach ($data['types'] as $group => $types) {
             foreach ($types as $index => $type) {
-                $trainingType = TrainingType::updateOrCreate(
-                    ['group' => $group, 'section' => $type['section'], 'name' => $type['name']],
-                    ['validity' => $type['validity'], 'sort_order' => $index],
-                );
+                $trainingType = TrainingType::query()
+                    ->where('group', $group)
+                    ->where('section', $type['section'])
+                    ->where('name', $type['name'])
+                    ->firstOrFail();
 
                 $typeIds[$group][$index] = $trainingType->id;
             }
