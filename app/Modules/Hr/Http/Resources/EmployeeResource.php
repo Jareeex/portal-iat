@@ -42,7 +42,7 @@ class EmployeeResource extends JsonResource
 
         return [
             ...$data,
-            'name' => $employee->user?->name ?? $employee->name,
+            'name' => $employee->user_id === null ? $employee->name : $employee->user->name,
             ...($list ? [] : [
                 'age' => $employee->age,
                 'photo_url' => $employee->photo_url,

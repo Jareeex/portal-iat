@@ -276,7 +276,8 @@ export default function LeaveRequestsPage() {
                 <div>
                     <strong>{request.employee.name ?? 'Akun nonaktif'}</strong>
                     <div className="muted">
-                        {request.employee.employee_number || 'No. pegawai belum diisi'}
+                        {request.employee.employee_number ||
+                            'No. pegawai belum diisi'}
                         {request.employee.department
                             ? ` · ${request.employee.department}`
                             : ''}
@@ -292,7 +293,8 @@ export default function LeaveRequestsPage() {
             header: 'Periode',
             render: (request) => (
                 <div>
-                    {formatDate(request.start_date)} – {formatDate(request.end_date)}
+                    {formatDate(request.start_date)} –{' '}
+                    {formatDate(request.end_date)}
                     <div className="muted">{request.days} hari kerja</div>
                 </div>
             ),
@@ -304,8 +306,7 @@ export default function LeaveRequestsPage() {
                     <span>{request.reason}</span>
                     {request.manager_review_note && (
                         <div className="muted">
-                            Catatan manager:{' '}
-                            {request.manager_review_note}
+                            Catatan manager: {request.manager_review_note}
                         </div>
                     )}
                     {request.review_note && (
@@ -351,16 +352,16 @@ export default function LeaveRequestsPage() {
                                   Edit
                               </button>
                               {request.status === 'hr_pending' && (
-                                      <button
-                                          type="button"
-                                          className="btn btn-primary"
-                                          onClick={() =>
-                                              openReview(request, 'approve')
-                                          }
-                                      >
-                                          Proses
-                                      </button>
-                                  )}
+                                  <button
+                                      type="button"
+                                      className="btn btn-primary"
+                                      onClick={() =>
+                                          openReview(request, 'approve')
+                                      }
+                                  >
+                                      Proses
+                                  </button>
+                              )}
                           </div>
                       ),
                   },
@@ -389,7 +390,11 @@ export default function LeaveRequestsPage() {
                 ) : (
                     <form className="form" onSubmit={submitRequest}>
                         <Field label="Jenis cuti">
-                            <select name="leave_type_id" required defaultValue="">
+                            <select
+                                name="leave_type_id"
+                                required
+                                defaultValue=""
+                            >
                                 <option value="" disabled>
                                     Pilih jenis cuti
                                 </option>
@@ -466,9 +471,11 @@ export default function LeaveRequestsPage() {
                             <button
                                 type="submit"
                                 className="btn btn-primary"
-                                disabled=                                {submitting ||
+                                disabled={
+                                    submitting ||
                                     types.length === 0 ||
-                                    managers.length === 0}
+                                    managers.length === 0
+                                }
                             >
                                 {submitting
                                     ? 'Mengirim...'
@@ -646,7 +653,8 @@ export default function LeaveRequestsPage() {
                     <form className="form" onSubmit={submitReview}>
                         {reviewError && <Alert>{reviewError}</Alert>}
                         <p>
-                            {reviewing.employee.name} · {reviewing.leave_type.name}
+                            {reviewing.employee.name} ·{' '}
+                            {reviewing.leave_type.name}
                             {' · '}
                             {formatDate(reviewing.start_date)} –{' '}
                             {formatDate(reviewing.end_date)}
@@ -804,7 +812,9 @@ export default function LeaveRequestsPage() {
                                 className="btn btn-primary"
                                 disabled={editSaving}
                             >
-                                {editSaving ? 'Menyimpan...' : 'Simpan perubahan'}
+                                {editSaving
+                                    ? 'Menyimpan...'
+                                    : 'Simpan perubahan'}
                             </button>
                         </div>
                     </form>

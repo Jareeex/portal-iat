@@ -4,6 +4,7 @@ use App\Models\Department;
 use App\Models\Page;
 use App\Models\User;
 use App\Modules\Hr\Models\Employee;
+use App\Modules\Hr\Models\JobPosition;
 use App\Services\AccessService;
 use Laravel\Sanctum\Sanctum;
 
@@ -67,6 +68,7 @@ test('users with employee page access can view the directory but cannot edit pro
 });
 
 test('master updates employee profile without changing the linked user account', function () {
+    JobPosition::create(['name' => 'Pilot']);
     $master = User::factory()->create(['role' => User::ROLE_MASTER, 'is_active' => true]);
     $user = User::factory()->create(['name' => 'Original Name', 'is_active' => true]);
 
@@ -91,6 +93,7 @@ test('master updates employee profile without changing the linked user account',
 });
 
 test('master can assign an employee editor who can update employee records', function () {
+    JobPosition::create(['name' => 'Training Editor']);
     $hrPage = Page::create([
         'key' => 'hr-employees',
         'name' => 'Employees',
@@ -115,6 +118,7 @@ test('master can assign an employee editor who can update employee records', fun
 });
 
 test('employee editors can create employees without accounts but viewers cannot', function () {
+    JobPosition::create(['name' => 'HR Specialist']);
     $department = Department::create([
         'name' => 'Human Resources',
         'code' => 'HR',
@@ -170,6 +174,7 @@ test('employee editors can create employees without accounts but viewers cannot'
 });
 
 test('master can link an employee profile when creating its account', function () {
+    JobPosition::create(['name' => 'Pilot']);
     $master = User::factory()->create([
         'role' => User::ROLE_MASTER,
         'is_active' => true,

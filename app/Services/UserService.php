@@ -31,7 +31,7 @@ class UserService
         $data['role'] ??= User::ROLE_USER;
 
         return DB::transaction(function () use ($data): User {
-            $employeeId = $data['employee_id'] ?? null;
+            $employeeId = isset($data['employee_id']) ? (int) $data['employee_id'] : null;
             unset($data['employee_id']);
 
             $employee = $employeeId === null

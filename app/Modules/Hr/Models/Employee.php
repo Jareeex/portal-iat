@@ -34,7 +34,7 @@ use RuntimeException;
  * @property-read int|null $age
  * @property-read string|null $photo_url
  * @property string|null $photo_path
- * @property-read User $user
+ * @property-read User|null $user
  */
 class Employee extends Model
 {
