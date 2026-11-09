@@ -366,15 +366,17 @@ export default function TrainingIndexPage() {
                                             )}
                                             <select
                                                 value={
-                                                    aircraftAssignments[crew.id] ??
-                                                    ''
+                                                    aircraftAssignments[
+                                                        crew.id
+                                                    ] ?? ''
                                                 }
                                                 onChange={(event) =>
                                                     setAircraftAssignments(
                                                         (assignments) => ({
                                                             ...assignments,
                                                             [crew.id]:
-                                                                event.target.value,
+                                                                event.target
+                                                                    .value,
                                                         }),
                                                     )
                                                 }

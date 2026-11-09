@@ -1,10 +1,5 @@
 import api from './api';
-import type {
-    LeaveManagerOption,
-    LeaveRequest,
-    LeaveType,
-    Paginated,
-} from '../types';
+import type { LeaveManagerOption, LeaveRequest, LeaveType } from '../types';
 
 interface ResourcePagination<T> {
     data: T[];
@@ -24,7 +19,9 @@ export interface LeaveInboxParams {
 
 export const leaveService = {
     types: () =>
-        api.get<LeaveType[]>('/hr/leave-types').then((response) => response.data),
+        api
+            .get<LeaveType[]>('/hr/leave-types')
+            .then((response) => response.data),
 
     managers: () =>
         api
@@ -45,10 +42,9 @@ export const leaveService = {
 
     inbox: (params: LeaveInboxParams = {}) =>
         api
-            .get<ResourcePagination<LeaveRequest>>(
-                '/hr/leave-requests/inbox',
-                { params },
-            )
+            .get<ResourcePagination<LeaveRequest>>('/hr/leave-requests/inbox', {
+                params,
+            })
             .then(({ data }) => ({ ...data.meta, data: data.data })),
 
     pendingCount: () =>

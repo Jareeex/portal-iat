@@ -69,7 +69,9 @@ export default function EmployeesPage() {
     const [form, setForm] = useState<EmployeeForm>(emptyForm);
     const [formError, setFormError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
-    const [positionEditing, setPositionEditing] = useState<JobPosition | null>(null);
+    const [positionEditing, setPositionEditing] = useState<JobPosition | null>(
+        null,
+    );
     const [positionModalOpen, setPositionModalOpen] = useState(false);
     const [positionForm, setPositionForm] =
         useState<JobPositionPayload>(emptyPositionForm);
@@ -258,7 +260,7 @@ export default function EmployeesPage() {
         },
         {
             header: 'Akun',
-            render: (employee) => (
+            render: (employee) =>
                 employee.user ? (
                     <div>
                         <span
@@ -282,8 +284,7 @@ export default function EmployeesPage() {
                     </div>
                 ) : (
                     <span className="badge badge-off">Belum terhubung</span>
-                )
-            ),
+                ),
         },
         {
             header: 'Status kerja',
@@ -319,8 +320,8 @@ export default function EmployeesPage() {
                 <div>
                     <h2>Employees</h2>
                     <p className="muted">
-                        HR dapat membuat profil employee; akun dapat
-                        dihubungkan oleh Master. Total: {total}
+                        HR dapat membuat profil employee; akun dapat dihubungkan
+                        oleh Master. Total: {total}
                     </p>
                 </div>
                 {canEditEmployees && (
@@ -381,9 +382,7 @@ export default function EmployeesPage() {
                             {
                                 header: 'Approver cuti',
                                 render: (position) =>
-                                    position.is_leave_manager
-                                        ? 'Ya'
-                                        : 'Tidak',
+                                    position.is_leave_manager ? 'Ya' : 'Tidak',
                             },
                             {
                                 header: 'Aksi',
@@ -634,101 +633,98 @@ export default function EmployeesPage() {
                 </Modal>
             )}
             {positionModalOpen && (
-                    <Modal
-                        title={
-                            positionEditing
-                                ? `Edit jabatan · ${positionEditing.name}`
-                                : 'Tambah jabatan'
-                        }
-                        onClose={() => {
-                            setPositionEditing(null);
-                            setPositionModalOpen(false);
-                            setPositionError(null);
-                        }}
-                    >
-                        <form className="form" onSubmit={onPositionSubmit}>
-                            {positionError && <Alert>{positionError}</Alert>}
-                            <Field label="Nama jabatan">
-                                <input
-                                    value={positionForm.name}
-                                    onChange={(event) =>
-                                        setPositionForm({
-                                            ...positionForm,
-                                            name: event.target.value,
-                                        })
-                                    }
-                                    maxLength={120}
-                                    required
-                                />
-                            </Field>
-                            <Field label="Urutan hierarki (kecil ke besar)">
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={999}
-                                    value={positionForm.sort_order}
-                                    onChange={(event) =>
-                                        setPositionForm({
-                                            ...positionForm,
-                                            sort_order: Number(
-                                                event.target.value,
-                                            ),
-                                        })
-                                    }
-                                    required
-                                />
-                            </Field>
-                            <label className="check">
-                                <input
-                                    type="checkbox"
-                                    checked={positionForm.is_active}
-                                    onChange={(event) =>
-                                        setPositionForm({
-                                            ...positionForm,
-                                            is_active: event.target.checked,
-                                        })
-                                    }
-                                />
-                                Aktif untuk dipilih sebagai jabatan karyawan
-                            </label>
-                            <label className="check">
-                                <input
-                                    type="checkbox"
-                                    checked={positionForm.is_leave_manager}
-                                    onChange={(event) =>
-                                        setPositionForm({
-                                            ...positionForm,
-                                            is_leave_manager:
-                                                event.target.checked,
-                                        })
-                                    }
-                                />
-                                Dapat dipilih sebagai approver cuti
-                            </label>
-                            <div className="modal-actions">
-                                <button
-                                    type="button"
-                                    className="btn btn-ghost"
-                                    onClick={() => {
-                                        setPositionEditing(null);
-                                        setPositionModalOpen(false);
-                                        setPositionError(null);
-                                    }}
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn btn-primary"
-                                    disabled={positionSaving}
-                                >
-                                    {positionSaving
-                                        ? 'Menyimpan...'
-                                        : 'Simpan jabatan'}
-                                </button>
-                            </div>
-                        </form>
-                    </Modal>
+                <Modal
+                    title={
+                        positionEditing
+                            ? `Edit jabatan · ${positionEditing.name}`
+                            : 'Tambah jabatan'
+                    }
+                    onClose={() => {
+                        setPositionEditing(null);
+                        setPositionModalOpen(false);
+                        setPositionError(null);
+                    }}
+                >
+                    <form className="form" onSubmit={onPositionSubmit}>
+                        {positionError && <Alert>{positionError}</Alert>}
+                        <Field label="Nama jabatan">
+                            <input
+                                value={positionForm.name}
+                                onChange={(event) =>
+                                    setPositionForm({
+                                        ...positionForm,
+                                        name: event.target.value,
+                                    })
+                                }
+                                maxLength={120}
+                                required
+                            />
+                        </Field>
+                        <Field label="Urutan hierarki (kecil ke besar)">
+                            <input
+                                type="number"
+                                min={1}
+                                max={999}
+                                value={positionForm.sort_order}
+                                onChange={(event) =>
+                                    setPositionForm({
+                                        ...positionForm,
+                                        sort_order: Number(event.target.value),
+                                    })
+                                }
+                                required
+                            />
+                        </Field>
+                        <label className="check">
+                            <input
+                                type="checkbox"
+                                checked={positionForm.is_active}
+                                onChange={(event) =>
+                                    setPositionForm({
+                                        ...positionForm,
+                                        is_active: event.target.checked,
+                                    })
+                                }
+                            />
+                            Aktif untuk dipilih sebagai jabatan karyawan
+                        </label>
+                        <label className="check">
+                            <input
+                                type="checkbox"
+                                checked={positionForm.is_leave_manager}
+                                onChange={(event) =>
+                                    setPositionForm({
+                                        ...positionForm,
+                                        is_leave_manager: event.target.checked,
+                                    })
+                                }
+                            />
+                            Dapat dipilih sebagai approver cuti
+                        </label>
+                        <div className="modal-actions">
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => {
+                                    setPositionEditing(null);
+                                    setPositionModalOpen(false);
+                                    setPositionError(null);
+                                }}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={positionSaving}
+                            >
+                                {positionSaving
+                                    ? 'Menyimpan...'
+                                    : 'Simpan jabatan'}
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
             )}
         </div>
     );
