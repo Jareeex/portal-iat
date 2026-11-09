@@ -500,9 +500,48 @@ test('master can add an aircraft as a crew training group', function () {
     $atr = $this->getJson('/api/training')
         ->assertOk()
         ->json('aircrafts.0');
+    $sharedName = 'Shared aircraft training';
+    $sourceType = TrainingType::create([
+        'group' => $groupKey,
+        'section' => 'Shared checks',
+        'name' => $sharedName,
+        'validity' => '12 Months',
+    ]);
+    $targetType = TrainingType::create([
+        'group' => 'fw_atr',
+        'section' => 'Shared checks',
+        'name' => $sharedName,
+        'validity' => '12 Months',
+    ]);
+    $lastCheck = now()->subDays(30)->toDateString();
+    $nextCheck = now()->addYear()->toDateString();
+    $planCheck = now()->addMonths(11)->toDateString();
+    $sourceRecord = CrewTraining::create([
+        'crew_id' => $crew->id,
+        'training_type_id' => $sourceType->id,
+        'last_check' => $lastCheck,
+        'next_check' => $nextCheck,
+        'plan_check' => $planCheck,
+    ]);
+
     $this->postJson("/api/training/crews/{$crewId}/aircrafts", [
         'aircraft_id' => $atr['id'],
     ])->assertCreated()->assertJsonCount(2, 'aircrafts');
+
+    $copiedRecord = CrewTraining::query()
+        ->where('crew_id', $crew->id)
+        ->where('training_type_id', $targetType->id)
+        ->firstOrFail();
+    expect($copiedRecord->last_check?->toDateString())->toBe($lastCheck)
+        ->and($copiedRecord->next_check?->toDateString())->toBe($nextCheck)
+        ->and($copiedRecord->plan_check?->toDateString())->toBe($planCheck);
+
+    $updatedNextCheck = now()->addYears(2)->toDateString();
+    $this->putJson("/api/training/crews/{$crewId}/records/{$targetType->id}", [
+        'next_check' => $updatedNextCheck,
+    ])->assertOk();
+    expect($copiedRecord->fresh()->next_check?->toDateString())->toBe($updatedNextCheck)
+        ->and($sourceRecord->fresh()->next_check?->toDateString())->toBe($nextCheck);
 
     foreach ([
         ['group' => $groupKey, 'section' => 'PC-12 Checks', 'name' => 'PC-12 recurrent'],
@@ -520,7 +559,7 @@ test('master can add an aircraft as a crew training group', function () {
         ->assertOk()
         ->assertJsonPath('crew.group_label', 'Pilatus PC-12')
         ->assertJsonCount(2, 'crew.aircrafts')
-        ->assertJsonCount(2, 'sections');
+        ->assertJsonCount(4, 'sections');
     $this->getJson('/api/training')
         ->assertOk()
         ->assertJsonPath('crews.0.expired', 2);
@@ -536,7 +575,7 @@ test('master can add an aircraft as a crew training group', function () {
         ->assertJsonPath('crew.group', 'fw_atr')
         ->assertJsonPath('crew.group_label', 'ATR')
         ->assertJsonCount(1, 'crew.aircrafts')
-        ->assertJsonCount(1, 'sections');
+        ->assertJsonCount(2, 'sections');
     expect(Crew::findOrFail($crewId)->fleet)->toBe('ATR');
 
     $this->deleteJson("/api/training/crews/{$crewId}/aircrafts/{$atr['id']}")

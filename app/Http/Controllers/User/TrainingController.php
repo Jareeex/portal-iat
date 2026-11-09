@@ -323,7 +323,9 @@ class TrainingController extends Controller
             ],
         ]);
         $aircraft = TrainingAircraft::query()->findOrFail((int) $data['aircraft_id']);
-        DB::transaction(function () use ($crew, $aircraft, $isUnassignedPilot, $data): void {
+        $sourceGroup = $crew->group;
+
+        DB::transaction(function () use ($crew, $aircraft, $isUnassignedPilot, $data, $sourceGroup): void {
             if ($isUnassignedPilot) {
                 abort_if($aircraft->group_key === null, 422, 'Pesawat belum memiliki kelompok training.');
                 $crew->update([
@@ -334,6 +336,10 @@ class TrainingController extends Controller
                 ]);
             }
             $crew->trainingAircrafts()->syncWithoutDetaching([$aircraft->id]);
+
+            if ($sourceGroup !== null && $sourceGroup !== $aircraft->group_key) {
+                $this->copyMatchingTrainingRecords($crew, $sourceGroup, $aircraft->group_key);
+            }
         });
 
         return response()->json([
@@ -347,6 +353,41 @@ class TrainingController extends Controller
                 ])
                 ->values(),
         ], 201);
+    }
+
+    private function copyMatchingTrainingRecords(Crew $crew, string $sourceGroup, string $targetGroup): void
+    {
+        $targetTypes = TrainingType::query()->where('group', $targetGroup)->get();
+        $targetNames = $targetTypes->pluck('name')->unique();
+
+        if ($targetNames->isEmpty()) {
+            return;
+        }
+
+        $sourceRecords = $crew->trainings()
+            ->with('type')
+            ->whereHas('type', fn ($query) => $query
+                ->where('group', $sourceGroup)
+                ->whereIn('name', $targetNames))
+            ->get()
+            ->filter(fn (CrewTraining $record): bool => $record->type !== null)
+            ->keyBy(fn (CrewTraining $record): string => $record->type->name);
+
+        foreach ($targetTypes as $targetType) {
+            $sourceRecord = $sourceRecords->get($targetType->name);
+
+            if ($sourceRecord === null || $crew->trainings()->where('training_type_id', $targetType->id)->exists()) {
+                continue;
+            }
+
+            CrewTraining::create([
+                'crew_id' => $crew->id,
+                'training_type_id' => $targetType->id,
+                'last_check' => $sourceRecord->last_check?->toDateString(),
+                'next_check' => $sourceRecord->next_check?->toDateString(),
+                'plan_check' => $sourceRecord->plan_check?->toDateString(),
+            ]);
+        }
     }
 
     public function destroyCrewAircraft(Request $request, Crew $crew, TrainingAircraft $aircraft): JsonResponse
