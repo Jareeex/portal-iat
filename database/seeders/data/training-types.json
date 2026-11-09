@@ -1,0 +1,861 @@
+{
+    "types": {
+        "fw_atr": [
+            {
+                "section": "Medical",
+                "name": "Medical Examination",
+                "validity": "6 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Pilot Proficiency Check – Simulator PIC",
+                "validity": "6 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Pilot Proficiency Check – Simulator SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Pilot Proficiency Check – Aircraft PIC",
+                "validity": "6 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Pilot Proficiency Check – Aircraft SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Instrument Rating Check – Simulator",
+                "validity": "12 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Instrument Rating Check – Aircraft",
+                "validity": "12 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Line Check",
+                "validity": "12 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Technical Exam",
+                "validity": "12 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Night Current",
+                "validity": "90 Days"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "TCAS (Simulator)",
+                "validity": "06/12 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "LOFT",
+                "validity": ""
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Pilot Proficiency Check – Simulator PIC",
+                "validity": "6 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Pilot Proficiency Check – Simulator SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Pilot Proficiency Check – Aircraft PIC",
+                "validity": "6 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Pilot Proficiency Check – Aircraft SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Instrument Rating Check – Simulator",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Instrument Rating Check – Aircraft",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Line Check",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Technical Exam",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Night Current",
+                "validity": "90 Days"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "TCAS (Simulator)",
+                "validity": "06/12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "LOFT",
+                "validity": ""
+            },
+            {
+                "section": "Mandatory",
+                "name": "CRM",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Dangerous Goods",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Emergency Drill (CET)",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Windshear",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Aviation Security",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "English Proficiency",
+                "validity": "3 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Indoc.",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "RVSM",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Additional",
+                "name": "PBN",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "ALAR / CFIT",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Additional",
+                "name": "SMS",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "CCP or CC",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Instructor",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Sea & Jungle Survival",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "HSE",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Ramp Safety",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "TOEIC",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "SAR",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Service Excellence",
+                "validity": ""
+            }
+        ],
+        "fw_rss": [
+            {
+                "section": "Medical",
+                "name": "Medical Examination",
+                "validity": "6 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Pilot Proficiency Check – Simulator PIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Pilot Proficiency Check – Simulator SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Pilot Proficiency Check – Aircraft PIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Pilot Proficiency Check – Aircraft SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Instrument Rating Check – Simulator",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Instrument Rating Check – Aircraft",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Line Check",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Technical Exam",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "Night Current",
+                "validity": "90 Days"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "TCAS (Simulator)",
+                "validity": "06/12 Months"
+            },
+            {
+                "section": "EMB 135 BJ",
+                "name": "LOFT",
+                "validity": ""
+            },
+            {
+                "section": "Mandatory",
+                "name": "CRM",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Dangerous Goods",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Emergency Drill (CET)",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Windshear",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Aviation Security",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "English Proficiency",
+                "validity": "3 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Indoc.",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "RVSM",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Additional",
+                "name": "PBN",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "ALAR / CFIT",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Additional",
+                "name": "SMS",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "CCP or CC",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Instructor",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Sea & Jungle Survival",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "HSE",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Ramp Safety",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "TOEIC",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "SAR",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Service Excellence",
+                "validity": ""
+            }
+        ],
+        "fw_jam": [
+            {
+                "section": "Medical",
+                "name": "Medical Examination",
+                "validity": "6 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "Pilot Proficiency Check – Simulator PIC",
+                "validity": "6 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "Pilot Proficiency Check – Simulator SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "Pilot Proficiency Check – Aircraft PIC",
+                "validity": "6 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "Pilot Proficiency Check – Aircraft SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "Instrument Rating Check – Simulator",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "Instrument Rating Check – Aircraft",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "Line Check",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "Technical Exam",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "Night Current",
+                "validity": "90 Days"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "TCAS (Simulator)",
+                "validity": "06/12 Months"
+            },
+            {
+                "section": "Hawker 900 XP",
+                "name": "LOFT",
+                "validity": ""
+            },
+            {
+                "section": "Mandatory",
+                "name": "CRM",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Dangerous Goods",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Emergency Drill (CET)",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Windshear",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Aviation Security",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "English Proficiency",
+                "validity": "3 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Indoc.",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "RVSM",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Additional",
+                "name": "PBN",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "ALAR / CFIT",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Additional",
+                "name": "SMS",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "CCP or CC",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Instructor",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Sea & Jungle Survival",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "HSE",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Ramp Safety",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "TOEIC",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "SAR",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Service Excellence",
+                "validity": ""
+            }
+        ],
+        "rw": [
+            {
+                "section": "Medical",
+                "name": "Medical Examination",
+                "validity": "6 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "Pilot Proficiency Check – Simulator PIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "Pilot Proficiency Check – Simulator SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "Pilot Proficiency Check – Aircraft PIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "Pilot Proficiency Check – Aircraft SIC",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "Instrument Rating Check – Simulator",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "Instrument Rating Check – Aircraft",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "Line Check",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "Technical Exam",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "Night Current",
+                "validity": "90 Days"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "TCAS",
+                "validity": "12 Months"
+            },
+            {
+                "section": "EC 155 B1",
+                "name": "LOFT",
+                "validity": ""
+            },
+            {
+                "section": "Mandatory",
+                "name": "CRM",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Dangerous Goods",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "HUET",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Windshear",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Aviation Security",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "English Proficiency",
+                "validity": "3 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Indoc.",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "ALAR / CFIT",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Additional",
+                "name": "SMS",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "CCP or CC",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Instructor",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Sea & Jungle Survival",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "HSE",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Ramp Safety",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "TOEIC",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "SAR",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Service Excellence",
+                "validity": ""
+            }
+        ],
+        "fa": [
+            {
+                "section": "Medical",
+                "name": "Medical Examination",
+                "validity": "12 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Licence – Recurrent",
+                "validity": "12 Months"
+            },
+            {
+                "section": "ATR 42-500",
+                "name": "Licence – Competency Check",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Mandatory",
+                "name": "CRM",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Dangerous Goods",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Emergency Drill (CET)",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Aviation Security",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Indoc.",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "SMS",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Additional",
+                "name": "Service Excellence",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "Training of Trainer",
+                "validity": ""
+            }
+        ],
+        "foo_hlo": [
+            {
+                "section": "Licence",
+                "name": "HLO – Expiry",
+                "validity": "24 Months"
+            },
+            {
+                "section": "Licence",
+                "name": "ACO – Expiry",
+                "validity": "24 Months"
+            },
+            {
+                "section": "Medical",
+                "name": "Medical Examination",
+                "validity": "24 Months"
+            },
+            {
+                "section": "Licence",
+                "name": "Recurrent",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Licence",
+                "name": "Competency Check",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Licence",
+                "name": "Familiarization Flight",
+                "validity": "12 Months"
+            },
+            {
+                "section": "Mandatory",
+                "name": "DRM",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Dangerous Goods",
+                "validity": "2 Yrs"
+            },
+            {
+                "section": "Mandatory",
+                "name": "Aviation Security",
+                "validity": "1 Yr"
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Indoc.",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "SMS",
+                "validity": "24 Months"
+            },
+            {
+                "section": "Additional",
+                "name": "COM Socialization",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "CCP or CC",
+                "validity": ""
+            },
+            {
+                "section": "Additional",
+                "name": "Basic Instructor",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Sea & Jungle Survival",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "HSE",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Ramp Safety",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "TOEIC",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "SAR",
+                "validity": ""
+            },
+            {
+                "section": "General",
+                "name": "Service Excellence",
+                "validity": ""
+            },
+            {
+                "section": "Specialist",
+                "name": "HUET",
+                "validity": ""
+            },
+            {
+                "section": "Specialist",
+                "name": "Load Master",
+                "validity": ""
+            },
+            {
+                "section": "Specialist",
+                "name": "HLO",
+                "validity": "24 Months"
+            },
+            {
+                "section": "SOP",
+                "name": "F50",
+                "validity": ""
+            },
+            {
+                "section": "SOP",
+                "name": "BE-1900D",
+                "validity": ""
+            }
+        ]
+    }
+}

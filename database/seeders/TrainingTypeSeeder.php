@@ -13,7 +13,7 @@ class TrainingTypeSeeder extends Seeder
      */
     public function run(): void
     {
-        $path = database_path('seeders/data/training.json');
+        $path = database_path('seeders/data/training-types.json');
 
         if (! is_file($path)) {
             throw new RuntimeException("Training catalog not found: {$path}");
