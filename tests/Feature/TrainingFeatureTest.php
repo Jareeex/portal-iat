@@ -7,9 +7,12 @@ use App\Models\Page;
 use App\Models\TrainingAircraft;
 use App\Models\TrainingType;
 use App\Models\User;
+use App\Notifications\TrainingExpiryNotification;
+use Carbon\CarbonImmutable;
 use Database\Seeders\TrainingTypeSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\View;
 use Laravel\Sanctum\Sanctum;
 
 test('training type catalog can be seeded without importing crew records', function () {
@@ -112,96 +115,7 @@ test('users without training page access cannot view crew training status', func
     $this->getJson('/api/training')->assertForbidden();
 });
 
-test('master imports xlsx crew data and only updates the last training check', function () {
-    Page::create([
-        'key' => 'training',
-        'name' => 'Training',
-        'route' => '/training',
-        'is_active' => true,
-    ]);
-    $type = TrainingType::create([
-        'group' => 'fw_atr',
-        'section' => 'Mandatory',
-        'name' => 'Annual check',
-        'validity' => '12 Months',
-    ]);
-    $existingCrew = Crew::create([
-        'group' => 'fw_atr',
-        'name' => 'Existing Crew',
-        'category' => 'Pilot',
-        'fleet' => 'ATR',
-        'position' => 'PIC',
-        'pilot_role' => 'PIC',
-    ]);
-    CrewTraining::create([
-        'crew_id' => $existingCrew->id,
-        'training_type_id' => $type->id,
-        'last_check' => '2024-01-01',
-        'next_check' => '2025-06-01',
-    ]);
-
-    Sanctum::actingAs(User::factory()->create([
-        'role' => User::ROLE_MASTER,
-        'is_active' => true,
-    ]));
-
-    $response = $this->postJson('/api/training/import', [
-        'file' => createTrainingSpreadsheet([
-            [
-                'NR.', 'N A M E', '', 'DOB', 'Address and phone number',
-                'Passport expiry date', 'Nationality', 'Joined IAT', 'Licence',
-                'Rating', 'Position', 'Remarks for row', 'Mandatory',
-            ],
-            ['', '', '', '', '', '', '', '', '', '', '', '', 'Annual check'],
-            [
-                '1', '', 'Existing Crew', '', 'Jakarta, 08123456789', '', '', '',
-                '', '', 'PIC', '', '2025-01-15',
-            ],
-            [
-                '2', '', 'New Crew', '01/02/1990', 'Bandung, 08123456789',
-                '31/12/2030', 'ID', '02/01/2022', 'ATPL', 'ATR', 'SIC',
-                'Imported from Excel', '2025-02-20',
-            ],
-        ], prependIntroSheet: true, useSharedStrings: true, mergedNameHeader: true),
-    ]);
-    $response->assertOk()
-        ->assertJsonPath('message', 'Impor selesai: 2 baris crew diproses.')
-        ->assertJsonPath('errors', []);
-
-    $existingRecord = CrewTraining::query()
-        ->where('crew_id', $existingCrew->id)
-        ->where('training_type_id', $type->id)
-        ->firstOrFail();
-    expect($existingRecord->last_check?->toDateString())->toBe('2025-01-15')
-        ->and($existingRecord->next_check?->toDateString())->toBe('2025-06-01');
-
-    $newCrew = Crew::query()->where('name', 'New Crew')->firstOrFail();
-    expect($newCrew->group)->toBeNull()
-        ->and($newCrew->address)->toBe('Bandung, 08123456789')
-        ->and($newCrew->dob?->toDateString())->toBe('1990-02-01')
-        ->and($newCrew->pilot_role)->toBe('SIC');
-
-    $newRecord = CrewTraining::query()
-        ->where('crew_id', $newCrew->id)
-        ->where('training_type_id', $type->id)
-        ->firstOrFail();
-    expect($newRecord->last_check?->toDateString())->toBe('2025-02-20')
-        ->and($newRecord->next_check)->toBeNull();
-
-    $this->getJson('/api/training')
-        ->assertOk()
-        ->assertJsonPath('unassigned_crews.0.name', 'New Crew');
-
-    $aircraft = TrainingAircraft::query()->where('group_key', 'fw_atr')->firstOrFail();
-    $this->postJson("/api/training/crews/{$newCrew->id}/aircrafts", [
-        'aircraft_id' => $aircraft->id,
-    ])->assertCreated();
-
-    expect($newCrew->fresh()->group)->toBe('fw_atr')
-        ->and($newCrew->fresh()->fleet)->toBe('ATR');
-});
-
-test('training viewers cannot import xlsx data', function () {
+test('training viewers cannot export PDF', function () {
     $page = Page::create([
         'key' => 'training',
         'name' => 'Training',
@@ -213,57 +127,268 @@ test('training viewers cannot import xlsx data', function () {
 
     Sanctum::actingAs($viewer);
 
-    $this->postJson('/api/training/import')->assertForbidden();
+    $this->get('/api/training/export')->assertForbidden();
     expect(Crew::query()->count())->toBe(0);
 });
 
-test('master can import a new pilot without position and assign role after import', function () {
+test('training export returns a PDF and import endpoint is not registered', function () {
     Page::create([
         'key' => 'training',
         'name' => 'Training',
         'route' => '/training',
         'is_active' => true,
     ]);
-    TrainingType::create([
+    $crew = Crew::create([
+        'group' => 'fw_atr',
+        'name' => 'PDF Crew',
+        'category' => 'Pilot',
+        'fleet' => 'ATR',
+        'position' => 'PIC',
+        'pilot_role' => 'PIC',
+    ]);
+    $type = TrainingType::create([
         'group' => 'fw_atr',
         'section' => 'Mandatory',
         'name' => 'Annual check',
         'validity' => '12 Months',
     ]);
+    CrewTraining::create([
+        'crew_id' => $crew->id,
+        'training_type_id' => $type->id,
+        'last_check' => '2026-01-01',
+        'next_check' => '2027-01-01',
+    ]);
+    TrainingType::insert(collect(range(1, 1067))
+        ->map(fn (int $index): array => [
+            'group' => 'fw_atr',
+            'section' => 'Mandatory',
+            'name' => "Annual check {$index}",
+            'validity' => '12 Months',
+            'sort_order' => $index,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ])
+        ->all());
 
     Sanctum::actingAs(User::factory()->create([
         'role' => User::ROLE_MASTER,
         'is_active' => true,
     ]));
 
-    $this->postJson('/api/training/import', [
-        'file' => createTrainingSpreadsheet([
-            [
-                'NR.', 'NAME', 'DOB', 'Address', 'Passport expiry date',
-                'Nationality', 'Joined IAT', 'Licence', 'Rating', 'Position',
-                'Remarks', 'Mandatory',
-            ],
-            ['', '', '', '', '', '', '', '', '', '', '', 'Annual check'],
-            [
-                '1', 'Crew Without Position', '', '', '', '', '', '', '', '',
-                '', '2025-03-10',
-            ],
-        ]),
-    ])->assertOk()
-        ->assertJsonPath('message', 'Impor selesai: 1 baris crew diproses.')
-        ->assertJsonPath('errors', []);
+    $response = $this->get('/api/training/export?group=fw_atr')
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf')
+        ->assertHeader('content-disposition');
 
-    $crew = Crew::query()->where('name', 'Crew Without Position')->firstOrFail();
-    expect($crew->pilot_role)->toBeNull();
+    expect($response->getContent())
+        ->toStartWith('%PDF-')
+        ->and(strlen($response->getContent()))
+        ->toBeGreaterThan(1000)
+        ->and($response->headers->get('content-disposition'))
+        ->toContain('training-record-')
+        ->toContain('.pdf');
 
-    $aircraft = TrainingAircraft::query()->where('group_key', 'fw_atr')->firstOrFail();
-    $this->postJson("/api/training/crews/{$crew->id}/aircrafts", [
-        'aircraft_id' => $aircraft->id,
-        'pilot_role' => 'SIC',
-    ])->assertCreated();
+    $this->postJson('/api/training/import')->assertMethodNotAllowed();
+});
 
-    expect($crew->fresh()->pilot_role)->toBe('SIC')
-        ->and($crew->fresh()->group)->toBe('fw_atr');
+test('aircraft export includes every pilot crew and leaves missing records blank', function () {
+    Page::create([
+        'key' => 'training',
+        'name' => 'Training',
+        'route' => '/training',
+        'is_active' => true,
+    ]);
+
+    $aircraft = TrainingAircraft::updateOrCreate(
+        ['group_key' => 'fw_atr'],
+        ['name' => 'ATR 42-500', 'is_active' => true],
+    );
+    TrainingAircraft::updateOrCreate(
+        ['group_key' => 'fw_b737'],
+        ['name' => 'Boeing 737', 'is_active' => true],
+    );
+    $type = TrainingType::create([
+        'group' => 'fw_atr',
+        'section' => 'Mandatory',
+        'name' => 'Annual check',
+        'validity' => '12 Months',
+    ]);
+    $assignedCrew = Crew::create([
+        'group' => 'fw_atr',
+        'name' => 'Assigned Crew',
+        'category' => 'Pilot',
+        'fleet' => 'ATR',
+        'position' => 'PIC',
+        'pilot_role' => 'PIC',
+    ]);
+    $unassignedCrew = Crew::create([
+        'group' => 'fw_b737',
+        'name' => 'Other Aircraft Crew',
+        'category' => 'Pilot',
+        'fleet' => 'B737',
+        'position' => 'PIC',
+        'pilot_role' => 'PIC',
+    ]);
+    $assignedCrew->trainingAircrafts()->attach($aircraft);
+
+    Sanctum::actingAs(User::factory()->create([
+        'role' => User::ROLE_MASTER,
+        'is_active' => true,
+    ]));
+
+    $exportData = null;
+    View::composer('training.export', function ($view) use (&$exportData): void {
+        $exportData = $view->getData();
+    });
+
+    $this->get('/api/training/export?aircraft=fw_atr')->assertOk();
+
+    expect($exportData['crewGroups'])->toHaveCount(2)
+        ->and($exportData['crewGroups'][1]['crew'])->toBe('Other Aircraft Crew')
+        ->and($exportData['crewGroups'][1]['trainings'][0]['training'])->toBe($type->name)
+        ->and($exportData['crewGroups'][1]['trainings'][0]['last_check'])->toBeNull()
+        ->and($exportData['crewGroups'][1]['trainings'][0]['next_check'])->toBeNull()
+        ->and($exportData['crewGroups'][1]['trainings'][0]['plan_check'])->toBeNull()
+        ->and($exportData['crewGroups'][1]['trainings'][0]['status'])->toBe('');
+
+    $html = view('training.export', $exportData)->render();
+    expect($html)
+        ->toContain('Other Aircraft Crew')
+        ->toContain('Terakhir: <br>')
+        ->not->toContain('Terakhir: -<br>');
+
+    $this->get("/api/training/export?crew_id={$assignedCrew->id}")->assertOk();
+    expect($exportData['crewGroups'])->toHaveCount(1)
+        ->and($exportData['crewGroups'][0]['crew'])->toBe('Assigned Crew');
+});
+
+test('training expiry reminders go to crew masters and training editors only once per stage and day', function () {
+    $today = CarbonImmutable::parse('2026-11-10 08:00:00');
+    $this->travelTo($today);
+
+    $trainingPage = Page::create([
+        'key' => 'training',
+        'name' => 'Training',
+        'route' => '/training',
+        'is_active' => true,
+    ]);
+    $master = User::factory()->create([
+        'email' => 'master@example.test',
+        'role' => User::ROLE_MASTER,
+        'is_active' => true,
+    ]);
+    $editor = User::factory()->create([
+        'email' => 'training-editor@example.test',
+        'is_active' => true,
+    ]);
+    $editor->pages()->attach($trainingPage->id, ['access_level' => 'edit']);
+    $bodDepartment = Department::create([
+        'name' => 'Board of Directors',
+        'code' => 'BOD',
+        'has_full_access' => true,
+    ]);
+    $bod = User::factory()->create([
+        'email' => 'bod@example.test',
+        'department_id' => $bodDepartment->id,
+        'is_active' => true,
+    ]);
+    $viewer = User::factory()->create([
+        'email' => 'training-viewer@example.test',
+        'is_active' => true,
+    ]);
+    $viewer->pages()->attach($trainingPage->id, ['access_level' => 'view']);
+    $crewUser = User::factory()->create([
+        'email' => 'crew@example.test',
+        'is_active' => true,
+    ]);
+    $crew = Crew::create([
+        'user_id' => $crewUser->id,
+        'group' => 'fw_atr',
+        'name' => 'Reminder Crew',
+        'category' => 'Pilot',
+        'fleet' => 'ATR',
+        'position' => 'PIC',
+    ]);
+
+    foreach ([
+        'Two month notice' => $today->addMonthsNoOverflow(2),
+        'One month notice' => $today->addMonthNoOverflow(),
+        'One week notice' => $today->addDays(7),
+        'Daily expired notice' => $today->subDay(),
+    ] as $trainingName => $dueDate) {
+        $type = TrainingType::create([
+            'group' => 'fw_atr',
+            'section' => 'Mandatory',
+            'name' => $trainingName,
+            'validity' => '12 Months',
+        ]);
+        CrewTraining::create([
+            'crew_id' => $crew->id,
+            'training_type_id' => $type->id,
+            'next_check' => $dueDate->toDateString(),
+        ]);
+    }
+
+    $this->artisan('app:send-training-reminders')->assertSuccessful();
+
+    expect($crewUser->notifications()->count())->toBe(4)
+        ->and($master->notifications()->count())->toBe(4)
+        ->and($editor->notifications()->count())->toBe(4)
+        ->and($bod->notifications()->count())->toBe(4)
+        ->and($viewer->notifications()->count())->toBe(0);
+    expect($crewUser->notifications()->first()->data)
+        ->toHaveKeys(['crew_id', 'crew_name', 'training_name', 'due_date', 'reminder_label', 'stage', 'url'])
+        ->and($crewUser->notifications()->first()->data['reminder_label'])
+        ->toBe('akan kedaluwarsa dalam 2 bulan');
+    expect($notification = new TrainingExpiryNotification(
+        crewId: $crew->id,
+        crewName: $crew->name,
+        trainingName: 'Two month notice',
+        dueDate: $today->addMonthsNoOverflow()->format('d/m/Y'),
+        reminderLabel: 'akan kedaluwarsa dalam 1 bulan',
+        stage: 'one_month',
+    ))->toBeInstanceOf(TrainingExpiryNotification::class)
+        ->and($notification->via($crewUser))->toBe(['database', 'mail'])
+        ->and($notification->toMail($crewUser)->subject)->toContain('Reminder Crew');
+
+    $this->artisan('app:send-training-reminders')->assertSuccessful();
+    expect($crewUser->notifications()->count())->toBe(4)
+        ->and($master->notifications()->count())->toBe(4)
+        ->and($editor->notifications()->count())->toBe(4)
+        ->and($bod->notifications()->count())->toBe(4);
+
+    $this->travelBack();
+});
+
+test('users can only view and mark their own notifications as read', function () {
+    $owner = User::factory()->create(['is_active' => true]);
+    $other = User::factory()->create(['is_active' => true]);
+    $notification = new TrainingExpiryNotification(
+        crewId: 1,
+        crewName: 'Assigned Crew',
+        trainingName: 'Annual check',
+        dueDate: '10/11/2026',
+        reminderLabel: 'akan kedaluwarsa dalam 1 minggu',
+        stage: 'one_week',
+    );
+    $owner->notify($notification);
+    $other->notify($notification);
+    $notificationId = $owner->notifications()->firstOrFail()->id;
+    $otherNotificationId = $other->notifications()->firstOrFail()->id;
+
+    Sanctum::actingAs($owner);
+
+    $this->getJson('/api/notifications')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 1)
+        ->assertJsonCount(1, 'notifications');
+    $this->postJson("/api/notifications/{$otherNotificationId}/read")->assertNotFound();
+    $this->postJson("/api/notifications/{$notificationId}/read")->assertOk();
+    $this->getJson('/api/notifications')->assertJsonPath('unread_count', 0);
+
+    $owner->notify($notification);
+    $this->postJson('/api/notifications/read-all')->assertOk();
+    $this->getJson('/api/notifications')->assertJsonPath('unread_count', 0);
 });
 
 test('creating a crew creates a linked user and employee with the training category', function () {
@@ -745,142 +870,3 @@ test('PIC and SIC proficiency checks follow the crew role and can be changed by 
         ->assertJsonPath('crew.pilot_role', 'PIC')
         ->assertJsonMissing(['name' => 'Pilot Proficiency Check – Simulator SIC']);
 });
-
-/**
- * @param  list<list<string>>  $rows
- */
-function createTrainingSpreadsheet(
-    array $rows,
-    bool $prependIntroSheet = false,
-    bool $useSharedStrings = false,
-    bool $mergedNameHeader = false,
-): UploadedFile {
-    $path = tempnam(sys_get_temp_dir(), 'training-xlsx-');
-    if ($path === false) {
-        throw new RuntimeException('Tidak dapat membuat file XLSX sementara untuk tes.');
-    }
-
-    $archive = new ZipArchive;
-    if ($archive->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-        unlink($path);
-        throw new RuntimeException('Tidak dapat membuat arsip XLSX untuk tes.');
-    }
-
-    $worksheetCount = $prependIntroSheet ? 2 : 1;
-    $mergedCellsXml = $mergedNameHeader
-        ? '<mergeCells count="1"><mergeCell ref="B1:C2"/></mergeCells>'
-        : '';
-    $worksheetOverrides = '';
-    $sheetEntries = '';
-    $relationshipEntries = '';
-    $sharedStringsOverride = $useSharedStrings
-        ? '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>'
-        : '';
-    for ($sheetNumber = 1; $sheetNumber <= $worksheetCount; $sheetNumber++) {
-        $worksheetOverrides .= '<Override PartName="/xl/worksheets/sheet'.$sheetNumber.'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
-        $sheetName = $prependIntroSheet && $sheetNumber === 1 ? 'Cover' : 'Training';
-        $relationshipId = 'rId'.($sheetNumber + 1);
-        $sheetEntries .= '<sheet name="'.$sheetName.'" sheetId="'.$sheetNumber.'" r:id="'.$relationshipId.'"/>';
-        $relationshipEntries .= '<Relationship Id="'.$relationshipId.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'.$sheetNumber.'.xml"/>';
-    }
-
-    $archive->addFromString('[Content_Types].xml', <<<XML
-<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  {$worksheetOverrides}
-  {$sharedStringsOverride}
-</Types>
-XML);
-    $archive->addFromString('_rels/.rels', <<<'XML'
-<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>
-XML);
-    $archive->addFromString('xl/workbook.xml', <<<XML
-<?xml version="1.0" encoding="UTF-8"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets>{$sheetEntries}</sheets>
-</workbook>
-XML);
-    $archive->addFromString('xl/_rels/workbook.xml.rels', <<<XML
-<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-  {$relationshipEntries}
-</Relationships>
-XML);
-
-    $sharedStrings = [];
-    $sharedStringIndexes = [];
-    $createWorksheetXml = function (array $worksheetData) use (
-        $useSharedStrings,
-        $mergedCellsXml,
-        $rows,
-        &$sharedStrings,
-        &$sharedStringIndexes,
-    ): string {
-        $worksheetRows = [];
-        foreach ($worksheetData as $rowIndex => $row) {
-            $cells = [];
-            foreach ($row as $columnIndex => $value) {
-                $columnName = '';
-                for ($number = $columnIndex + 1; $number > 0; $number = intdiv($number - 1, 26)) {
-                    $columnName = chr(65 + (($number - 1) % 26)).$columnName;
-                }
-                $cellReference = $columnName.($rowIndex + 1);
-                $escapedValue = htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-                if ($useSharedStrings) {
-                    if (! array_key_exists($value, $sharedStringIndexes)) {
-                        $sharedStringIndexes[$value] = count($sharedStrings);
-                        $sharedStrings[] = $escapedValue;
-                    }
-                    $cells[] = '<c r="'.$cellReference.'" t="s"><v>'.$sharedStringIndexes[$value].'</v></c>';
-                } else {
-                    $cells[] = '<c r="'.$cellReference.'" t="inlineStr"><is><t>'.$escapedValue.'</t></is></c>';
-                }
-            }
-            $worksheetRows[] = '<row r="'.($rowIndex + 1).'">'.implode('', $cells).'</row>';
-        }
-
-        $worksheetTail = $worksheetData === $rows ? $mergedCellsXml : '';
-
-        return '<?xml version="1.0" encoding="UTF-8"?>'
-            .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'
-            .implode('', $worksheetRows)
-            .'</sheetData>'.$worksheetTail.'</worksheet>';
-    };
-
-    $sheetNumber = 1;
-    if ($prependIntroSheet) {
-        $archive->addFromString('xl/worksheets/sheet1.xml', $createWorksheetXml([['Training roster']]));
-        $sheetNumber++;
-    }
-    $archive->addFromString('xl/worksheets/sheet'.$sheetNumber.'.xml', $createWorksheetXml($rows));
-    if ($useSharedStrings) {
-        $sharedStringEntries = implode('', array_map(
-            fn (string $value): string => '<si><t>'.$value.'</t></si>',
-            $sharedStrings,
-        ));
-        $archive->addFromString(
-            'xl/sharedStrings.xml',
-            '<?xml version="1.0" encoding="UTF-8"?>'
-                .'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'
-                .count($sharedStrings).'" uniqueCount="'.count($sharedStrings).'">'
-                .$sharedStringEntries
-                .'</sst>',
-        );
-    }
-    $archive->close();
-
-    $contents = file_get_contents($path);
-    unlink($path);
-    if ($contents === false) {
-        throw new RuntimeException('Tidak dapat membaca XLSX sementara untuk tes.');
-    }
-
-    return UploadedFile::fake()->createWithContent('training.xlsx', $contents);
-}

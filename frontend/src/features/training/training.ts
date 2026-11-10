@@ -124,8 +124,3 @@ export interface CrewFormData {
     address: string;
     remarks: string;
 }
-
-export interface ImportResult {
-    message: string;
-    errors: string[];
-}

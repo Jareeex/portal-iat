@@ -10,11 +10,11 @@ use App\Models\TrainingAircraft;
 use App\Models\TrainingType;
 use App\Models\User;
 use App\Services\AccessService;
-use App\Services\TrainingSpreadsheetImportService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -22,10 +22,11 @@ use Illuminate\Validation\Rule;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\HeaderUtils;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TrainingController extends Controller
 {
+    private const PDF_MEMORY_LIMIT = '512M';
+
     public function __construct(private AccessService $access) {}
 
     private function canManage(Request $request): bool
@@ -574,77 +575,114 @@ class TrainingController extends Controller
         return response()->json(['message' => 'Tersimpan.']);
     }
 
-    public function export(Request $request): StreamedResponse
+    public function export(Request $request): Response
     {
         $this->authorizeManage($request);
+        $validated = $request->validate([
+            'crew_id' => ['nullable', 'integer', 'exists:crews,id'],
+            'aircraft' => ['nullable', 'string', Rule::exists('training_aircrafts', 'group_key')->where('is_active', true)],
+        ]);
+        $crewId = isset($validated['crew_id']) ? (int) $validated['crew_id'] : null;
         $group = $request->query('group');
+        $groups = $this->groupsForUi();
+        $aircraft = $validated['aircraft'] ?? (
+            is_string($group) && ($groups[$group]['category'] ?? null) === 'Pilot' ? $group : null
+        );
         $crews = Crew::query()
-            ->whereIn('group', array_keys($this->groupsForUi()))
-            ->when($group, function ($query) use ($group): void {
+            ->when($crewId === null, fn ($query) => $query->whereIn('group', array_keys($groups)))
+            ->when($crewId !== null, fn ($query) => $query->whereKey($crewId))
+            ->when($aircraft !== null && $crewId === null, fn ($query) => $query->where('category', 'Pilot'))
+            ->when($aircraft === null && $group, function ($query) use ($group): void {
                 if (isset(Crew::GROUPS[$group])) {
                     $query->where('group', $group);
-                } else {
-                    $query->whereHas('trainingAircrafts', fn ($aircraftQuery) => $aircraftQuery->where('group_key', $group));
                 }
             })
-            ->with('trainings')
+            ->with(['trainings', 'trainingAircrafts'])
             ->orderBy('sort_order')
             ->get();
-        $types = TrainingType::query()->orderBy('sort_order')->get()->groupBy('group');
+        $types = TrainingType::query()
+            ->when($aircraft !== null, fn ($query) => $query->where('group', $aircraft))
+            ->orderBy('sort_order')
+            ->get()
+            ->groupBy('group');
+        $crewGroups = [];
+        $trainingCount = 0;
 
-        return response()->streamDownload(function () use ($crews, $types): void {
-            $output = fopen('php://output', 'w');
-            if ($output === false) {
-                throw new RuntimeException('Output CSV gagal dibuka.');
-            }
+        foreach ($crews as $crew) {
+            $records = $crew->trainings->keyBy('training_type_id');
+            $trainingRows = [];
 
-            fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['group', 'crew', 'section', 'training', 'validity', 'last_check', 'next_check', 'plan_check', 'status']);
+            foreach ($types as $groupTypes) {
+                foreach ($groupTypes as $type) {
+                    $trainingRole = TrainingType::pilotRoleFromName($type->name);
+                    $appliesToType = $aircraft !== null
+                        ? ($trainingRole === null || $crew->pilot_role === null || $trainingRole === $crew->pilot_role)
+                        : $crew->appliesToTrainingType($type);
 
-            foreach ($crews->load('trainingAircrafts') as $crew) {
-                $records = $crew->trainings->keyBy('training_type_id');
-
-                foreach ($types as $groupTypes) {
-                    foreach ($groupTypes as $type) {
-                        if (! $crew->appliesToTrainingType($type)) {
-                            continue;
-                        }
-
-                        $record = $records->get($type->id);
-                        fputcsv($output, [
-                            $type->group,
-                            $crew->name,
-                            $type->section,
-                            $type->name,
-                            $type->validity,
-                            $record?->last_check?->toDateString(),
-                            $record?->next_check?->toDateString(),
-                            $record?->plan_check?->toDateString(),
-                            CrewTraining::statusFor($record?->next_check),
-                        ]);
+                    if (! $appliesToType) {
+                        continue;
                     }
+
+                    $record = $records->get($type->id);
+                    $status = CrewTraining::statusFor($record?->next_check);
+
+                    $trainingRows[] = [
+                        'group' => $groups[$type->group]['label'] ?? $type->group,
+                        'section' => $type->section,
+                        'training' => $type->name,
+                        'validity' => $type->validity,
+                        'last_check' => $record?->last_check?->toDateString(),
+                        'next_check' => $record?->next_check?->toDateString(),
+                        'plan_check' => $record?->plan_check?->toDateString(),
+                        'status' => match ($status) {
+                            'expired' => 'Kedaluwarsa',
+                            'soon' => 'Segera berakhir',
+                            'valid' => 'Berlaku',
+                            default => $aircraft === null ? 'Belum diisi' : '',
+                        },
+                    ];
                 }
             }
 
-            fclose($output);
-        }, 'training-record-'.now()->format('Ymd').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
-    }
+            if ($trainingRows !== [] || $aircraft !== null) {
+                $crewGroups[] = [
+                    'crew' => $crew->name,
+                    'group' => $aircraft !== null
+                        ? ($groups[$aircraft]['label'] ?? $aircraft)
+                        : ($groups[$crew->group]['label'] ?? $crew->group),
+                    'trainings' => $trainingRows,
+                ];
+                $trainingCount += count($trainingRows);
+            }
+        }
 
-    public function import(Request $request, TrainingSpreadsheetImportService $importer): JsonResponse
-    {
-        $this->authorizeManage($request);
-        $data = $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx', 'extensions:xlsx', 'max:5120'],
-        ]);
-        $file = $request->file('file');
-        if (! $file instanceof UploadedFile) {
-            abort(422, 'File Excel tidak valid.');
+        $previousMemoryLimit = ini_get('memory_limit');
+        if (ini_set('memory_limit', self::PDF_MEMORY_LIMIT) === false) {
+            throw new RuntimeException('Batas memori PHP tidak dapat dinaikkan untuk membuat PDF training.');
         }
 
         try {
-            return response()->json($importer->import($file));
-        } catch (\InvalidArgumentException $exception) {
-            return response()->json(['message' => $exception->getMessage()], 422);
+            return Pdf::loadView('training.export', [
+                'crewGroups' => $crewGroups,
+                'crewCount' => $crews->count(),
+                'trainingCount' => $trainingCount,
+                'generatedAt' => now(),
+                'groupLabel' => $aircraft !== null
+                    ? ($groups[$aircraft]['label'] ?? $aircraft)
+                    : ($crewId !== null
+                        ? $crews->first()->name
+                        : ($group === null ? 'Semua kelompok' : ($groups[$group]['label'] ?? $group))),
+                'blankMissingRecords' => $aircraft !== null,
+            ])
+                ->setPaper('a4', 'landscape')
+                ->download('training-record-'.Str::slug($aircraft ?? ($crewId !== null ? 'crew-'.$crewId : 'all')).'-'.now()->format('Ymd').'.pdf');
+        } finally {
+            if (
+                $previousMemoryLimit === '-1'
+                || memory_get_usage() < ini_parse_quantity($previousMemoryLimit)
+            ) {
+                ini_set('memory_limit', $previousMemoryLimit);
+            }
         }
     }
 
