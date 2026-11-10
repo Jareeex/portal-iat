@@ -128,7 +128,6 @@ class Employee extends Model
                 ->orWhere('employee_number', 'like', "%{$term}%")
                 ->orWhere('job_title', 'like', "%{$term}%")
                 ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$term}%")
-                    ->orWhere('email', 'like', "%{$term}%")
                     ->orWhereHas('department', fn ($department) => $department
                         ->where('name', 'like', "%{$term}%")
                         ->orWhere('code', 'like', "%{$term}%")));

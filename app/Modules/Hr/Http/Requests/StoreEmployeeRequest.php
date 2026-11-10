@@ -18,6 +18,7 @@ class StoreEmployeeRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'photo' => ['nullable', 'image', 'max:2048'],
             ...EmployeeRules::employment(),
         ];
     }

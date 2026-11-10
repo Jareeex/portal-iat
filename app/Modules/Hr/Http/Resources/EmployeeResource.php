@@ -43,19 +43,14 @@ class EmployeeResource extends JsonResource
         return [
             ...$data,
             'name' => $employee->user_id === null ? $employee->name : $employee->user->name,
+            'photo_url' => $employee->photo_url,
             ...($list ? [] : [
                 'age' => $employee->age,
-                'photo_url' => $employee->photo_url,
                 'ktp_number' => $employee->ktp_number ? Str::mask($employee->ktp_number, '*', 0, -4) : null,
                 'passport_number' => $employee->passport_number ? Str::mask($employee->passport_number, '*', 0, -4) : null,
                 'npwp_number' => $employee->npwp_number ? Str::mask($employee->npwp_number, '*', 0, -4) : null,
             ]),
             'user' => $this->whenLoaded('user', fn () => $employee->user ? [
-                'id' => $employee->user->getKey(),
-                'name' => $employee->user->name,
-                'email' => $employee->user->email,
-                'role' => $employee->user->role,
-                'is_active' => $employee->user->is_active,
                 'department' => $employee->user->department?->only(['id', 'name', 'code']),
             ] : null),
             'experiences' => $this->whenLoaded('experiences'),

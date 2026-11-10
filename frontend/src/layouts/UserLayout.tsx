@@ -25,7 +25,12 @@ export default function UserLayout() {
             },
             ...pages
                 .filter(
-                    (p) => p.route !== '/dashboard' && p.key !== 'it-tickets',
+                    (p) =>
+                        p.route !== '/dashboard' &&
+                        p.key !== 'it-tickets' &&
+                        p.key.toLowerCase() !== 'leave' &&
+                        p.name.trim().toLowerCase() !== 'leave' &&
+                        p.route.trim().toLowerCase() !== '/leave',
                 )
                 .map((p) => ({
                     to: p.route,

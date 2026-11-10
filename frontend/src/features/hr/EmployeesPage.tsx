@@ -67,6 +67,7 @@ export default function EmployeesPage() {
     const [editing, setEditing] = useState<EmployeeProfile | null>(null);
     const [creating, setCreating] = useState(false);
     const [form, setForm] = useState<EmployeeForm>(emptyForm);
+    const [photo, setPhoto] = useState<File | null>(null);
     const [formError, setFormError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [positionEditing, setPositionEditing] = useState<JobPosition | null>(
@@ -137,6 +138,7 @@ export default function EmployeesPage() {
             join_date: employee.join_date ?? '',
             end_date: employee.end_date ?? '',
         });
+        setPhoto(null);
         setFormError(null);
     }
 
@@ -144,6 +146,7 @@ export default function EmployeesPage() {
         setEditing(null);
         setCreating(true);
         setForm(emptyForm);
+        setPhoto(null);
         setFormError(null);
     }
 
@@ -160,6 +163,7 @@ export default function EmployeesPage() {
             employment_status: form.employment_status || null,
             join_date: form.join_date || null,
             end_date: form.end_date || null,
+            photo,
         };
 
         try {
@@ -178,6 +182,7 @@ export default function EmployeesPage() {
             }
             setEditing(null);
             setCreating(false);
+            setPhoto(null);
             await load();
         } catch (saveError) {
             setFormError(errorMessage(saveError));
@@ -227,13 +232,21 @@ export default function EmployeesPage() {
 
     const columns: Column<EmployeeProfile>[] = [
         {
-            header: 'Karyawan / akun',
+            header: 'Employee',
             render: (employee) => (
-                <div>
+                <div className="employee-identity">
+                    {employee.photo_url ? (
+                        <img
+                            className="employee-avatar"
+                            src={employee.photo_url}
+                            alt=""
+                        />
+                    ) : (
+                        <span className="employee-avatar-placeholder">
+                            {employee.name.slice(0, 1).toUpperCase()}
+                        </span>
+                    )}
                     <strong>{employee.name}</strong>
-                    <div className="muted">
-                        {employee.user?.email ?? 'Belum terhubung ke akun'}
-                    </div>
                 </div>
             ),
         },
@@ -256,34 +269,6 @@ export default function EmployeesPage() {
             render: (employee) =>
                 employee.user?.department?.name ?? (
                     <span className="muted">-</span>
-                ),
-        },
-        {
-            header: 'Akun',
-            render: (employee) =>
-                employee.user ? (
-                    <div>
-                        <span
-                            className={
-                                employee.user.role === 'master'
-                                    ? 'badge badge-accent'
-                                    : 'badge'
-                            }
-                        >
-                            {employee.user.role}
-                        </span>{' '}
-                        <span
-                            className={
-                                employee.user.is_active
-                                    ? 'badge badge-ok'
-                                    : 'badge badge-off'
-                            }
-                        >
-                            {employee.user.is_active ? 'Aktif' : 'Nonaktif'}
-                        </span>
-                    </div>
-                ) : (
-                    <span className="badge badge-off">Belum terhubung</span>
                 ),
         },
         {
@@ -320,8 +305,7 @@ export default function EmployeesPage() {
                 <div>
                     <h2>Employees</h2>
                     <p className="muted">
-                        HR dapat membuat profil employee; akun dapat dihubungkan
-                        oleh Master. Total: {total}
+                        Kelola profil employee. Total: {total}
                     </p>
                 </div>
                 {canEditEmployees && (
@@ -415,7 +399,7 @@ export default function EmployeesPage() {
             >
                 <input
                     type="search"
-                    placeholder="Cari nama, email, no. pegawai, jabatan"
+                    placeholder="Cari nama, no. pegawai, jabatan"
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
                 />
@@ -504,19 +488,31 @@ export default function EmployeesPage() {
                                         required
                                     />
                                 </Field>
-                                {creating && (
-                                    <p className="muted">
-                                        Profil ini belum memiliki akun. Master
-                                        dapat menghubungkannya saat membuat akun
-                                        di menu Users.
-                                    </p>
-                                )}
                             </>
                         ) : (
                             <p className="muted">
-                                Nama dan akun dikelola di Master Panel → Users.
+                                Nama employee dikelola di Master Panel.
                             </p>
                         )}
+                        {editing?.photo_url && (
+                            <img
+                                className="employee-photo-preview"
+                                src={editing.photo_url}
+                                alt={`Foto ${editing.name}`}
+                            />
+                        )}
+                        <Field
+                            label="Foto employee"
+                            hint="Pilih gambar dengan ukuran maksimal 2 MB."
+                        >
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(event) =>
+                                    setPhoto(event.target.files?.[0] ?? null)
+                                }
+                            />
+                        </Field>
                         <Field label="Nomor pegawai">
                             <input
                                 value={form.employee_number}
