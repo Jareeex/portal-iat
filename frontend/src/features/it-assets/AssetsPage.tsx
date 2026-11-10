@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Alert, Loader } from '../../components/common/Feedback';
 import { Field } from '../../components/common/Field';
@@ -79,15 +80,30 @@ export default function AssetsPage() {
     }, [filters, page]);
 
     const loadMetadata = useCallback(async () => {
-        try {
-            const [categoryList, activeSummary] = await Promise.all([
-                itAssetService.categories(),
-                itAssetService.summary(),
-            ]);
-            setCategories(categoryList);
-            setSummary(activeSummary);
-        } catch (loadError) {
-            setError(errorMessage(loadError));
+        const [categoryResult, summaryResult] = await Promise.allSettled([
+            itAssetService.categories(),
+            itAssetService.summary(),
+        ]);
+        const metadataErrors: string[] = [];
+
+        if (categoryResult.status === 'fulfilled') {
+            setCategories(categoryResult.value);
+        } else {
+            metadataErrors.push(
+                `kategori: ${errorMessage(categoryResult.reason)}`,
+            );
+        }
+
+        if (summaryResult.status === 'fulfilled') {
+            setSummary(summaryResult.value);
+        } else {
+            metadataErrors.push(
+                `ringkasan: ${errorMessage(summaryResult.reason)}`,
+            );
+        }
+
+        if (metadataErrors.length > 0) {
+            setError(`Gagal memuat ${metadataErrors.join('; ')}.`);
         }
     }, []);
 
@@ -215,6 +231,34 @@ export default function AssetsPage() {
         try {
             downloadFile(await itAssetService.exportPdf(filters), 'it-assets.pdf');
         } catch (exportError) {
+            if (
+                axios.isAxiosError(exportError) &&
+                exportError.response?.data instanceof Blob
+            ) {
+                const responseBody = await exportError.response.data.text();
+                try {
+                    const payload: unknown = JSON.parse(responseBody);
+                    if (
+                        typeof payload === 'object' &&
+                        payload !== null &&
+                        'message' in payload &&
+                        typeof payload.message === 'string'
+                    ) {
+                        setError(payload.message);
+                        return;
+                    }
+                } catch (parseError) {
+                    if (!(parseError instanceof SyntaxError)) {
+                        throw parseError;
+                    }
+                }
+
+                setError(
+                    `Unduh PDF gagal (HTTP ${exportError.response.status}). Periksa log backend.`,
+                );
+                return;
+            }
+
             setError(errorMessage(exportError));
         }
     }

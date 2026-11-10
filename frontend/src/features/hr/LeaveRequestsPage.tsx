@@ -12,9 +12,9 @@ import type { LeaveRequest, LeaveStatus, LeaveType } from '../../types';
 type Decision = 'approve' | 'reject';
 
 const statusLabels: Record<LeaveStatus, string> = {
-    manager_pending: 'Menunggu persetujuan manager',
+    manager_pending: 'Menunggu persetujuan approver',
     hr_pending: 'Menunggu persetujuan HR',
-    manager_rejected: 'Ditolak manager',
+    manager_rejected: 'Ditolak approver',
     approved: 'Disetujui',
     rejected: 'Ditolak',
     cancelled: 'Dibatalkan',
@@ -306,7 +306,7 @@ export default function LeaveRequestsPage() {
                     <span>{request.reason}</span>
                     {request.manager_review_note && (
                         <div className="muted">
-                            Catatan manager: {request.manager_review_note}
+                            Catatan approver: {request.manager_review_note}
                         </div>
                     )}
                     {request.review_note && (
@@ -374,8 +374,10 @@ export default function LeaveRequestsPage() {
             <div className="page-head">
                 <h2>Leave Request</h2>
                 <p className="muted">
-                    Pilih manager dari departemenmu. Setelah disetujui manager,
-                    pengajuan diteruskan ke HR untuk keputusan akhir.
+                    Manager mengajukan ke BOD, Officer dapat memilih approver
+                    lintas departemen, dan jabatan lain memilih approver
+                    departemennya. Setelah disetujui, pengajuan diteruskan ke
+                    HR untuk keputusan akhir.
                 </p>
             </div>
 
@@ -411,7 +413,7 @@ export default function LeaveRequestsPage() {
                                 ))}
                             </select>
                         </Field>
-                        <Field label="Manager approver">
+                        <Field label="Approver cuti">
                             <select
                                 name="manager_id"
                                 required
@@ -420,8 +422,8 @@ export default function LeaveRequestsPage() {
                             >
                                 <option value="" disabled>
                                     {managers.length === 0
-                                        ? 'Manager departemen belum tersedia'
-                                        : 'Pilih manager departemen'}
+                                        ? 'Approver cuti departemen belum tersedia'
+                                        : 'Pilih approver cuti departemen'}
                                 </option>
                                 {managers.map((manager) => (
                                     <option key={manager.id} value={manager.id}>
@@ -479,7 +481,7 @@ export default function LeaveRequestsPage() {
                             >
                                 {submitting
                                     ? 'Mengirim...'
-                                    : 'Kirim ke manager'}
+                                    : 'Kirim ke approver cuti'}
                             </button>
                         </div>
                     </form>
@@ -490,9 +492,9 @@ export default function LeaveRequestsPage() {
                 <section className="leave-inbox">
                     <div className="page-head page-head-row">
                         <div>
-                            <h2>Persetujuan manager</h2>
+                            <h2>Persetujuan cuti</h2>
                             <p className="muted">
-                                Pengajuan yang meminta persetujuan darimu.
+                                Pengajuan yang meminta persetujuan cuti darimu.
                             </p>
                         </div>
                     </div>
