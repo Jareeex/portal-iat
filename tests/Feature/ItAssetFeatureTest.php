@@ -36,6 +36,12 @@ test('master can manage assets through the api route', function () {
     $this->getJson('/api/it/assets')
         ->assertOk()
         ->assertJsonStructure(['data', 'links', 'meta']);
+    $this->getJson('/api/it/assets/categories')
+        ->assertOk()
+        ->assertJsonCount(7);
+    $this->getJson('/api/it/assets/summary')
+        ->assertOk()
+        ->assertJsonPath('total', 0);
 
     $created = $this->postJson('/api/it/assets', [
         'asset_category_id' => $category->id,
@@ -76,7 +82,7 @@ test('only users with it asset page access can view the asset directory', functi
     $this->postJson('/api/it/assets', [])->assertForbidden();
 });
 
-test('asset export downloads a formatted pdf and csv template is not available', function () {
+test('asset export downloads a formatted pdf and template route is not available', function () {
     createItAssetPage();
     $master = User::factory()->create([
         'role' => User::ROLE_MASTER,
@@ -110,6 +116,21 @@ test('asset export downloads a formatted pdf and csv template is not available',
         ->toContain('.pdf')
         ->and(app('router')->getRoutes()->hasNamedRoute('it-assets.template'))
         ->toBeFalse();
+});
+
+test('empty inventory can still be exported as a pdf', function () {
+    createItAssetPage();
+    $master = User::factory()->create([
+        'role' => User::ROLE_MASTER,
+        'is_active' => true,
+    ]);
+    Sanctum::actingAs($master);
+
+    $response = $this->get('/api/it/assets/export')
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+
+    expect($response->getContent())->toStartWith('%PDF-');
 });
 
 test('csv import endpoint is not registered', function () {
