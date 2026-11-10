@@ -109,6 +109,8 @@ class SendTrainingReminders extends Command
                     });
                 }
 
+                $query->orWhereHas('department', fn (Builder $departmentQuery) => $departmentQuery->where('has_full_access', true));
+
                 if ($record->crew?->user_id !== null) {
                     $query->orWhereKey($record->crew->user_id);
                 }

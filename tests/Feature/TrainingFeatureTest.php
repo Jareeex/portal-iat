@@ -282,6 +282,16 @@ test('training expiry reminders go to crew masters and training editors only onc
         'is_active' => true,
     ]);
     $editor->pages()->attach($trainingPage->id, ['access_level' => 'edit']);
+    $bodDepartment = Department::create([
+        'name' => 'Board of Directors',
+        'code' => 'BOD',
+        'has_full_access' => true,
+    ]);
+    $bod = User::factory()->create([
+        'email' => 'bod@example.test',
+        'department_id' => $bodDepartment->id,
+        'is_active' => true,
+    ]);
     $viewer = User::factory()->create([
         'email' => 'training-viewer@example.test',
         'is_active' => true,
@@ -324,6 +334,7 @@ test('training expiry reminders go to crew masters and training editors only onc
     expect($crewUser->notifications()->count())->toBe(4)
         ->and($master->notifications()->count())->toBe(4)
         ->and($editor->notifications()->count())->toBe(4)
+        ->and($bod->notifications()->count())->toBe(4)
         ->and($viewer->notifications()->count())->toBe(0);
     expect($crewUser->notifications()->first()->data)
         ->toHaveKeys(['crew_id', 'crew_name', 'training_name', 'due_date', 'reminder_label', 'stage', 'url'])
@@ -343,7 +354,8 @@ test('training expiry reminders go to crew masters and training editors only onc
     $this->artisan('app:send-training-reminders')->assertSuccessful();
     expect($crewUser->notifications()->count())->toBe(4)
         ->and($master->notifications()->count())->toBe(4)
-        ->and($editor->notifications()->count())->toBe(4);
+        ->and($editor->notifications()->count())->toBe(4)
+        ->and($bod->notifications()->count())->toBe(4);
 
     $this->travelBack();
 });
