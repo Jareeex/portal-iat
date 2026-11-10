@@ -48,18 +48,34 @@ class StoreLeaveRequest extends FormRequest
             }
 
             $employee = Employee::forUser($user);
-            $managerIds = JobPosition::active()->where('is_leave_manager', true)->pluck('name');
-            $managerIsEligible = User::query()
+            $requesterIsManager = $employee->job_title === 'Manager';
+            $requesterIsOfficer = $employee->job_title === 'Officer';
+            $canSelectCrossDepartmentApprover = $requesterIsManager || $requesterIsOfficer;
+            $managerIds = $requesterIsManager
+                ? collect(['BOD'])
+                : JobPosition::active()->where('is_leave_manager', true)->pluck('name');
+            $managerQuery = User::query()
                 ->whereKey($this->integer('manager_id'))
                 ->where('is_active', true)
-                ->where('department_id', $user->department_id)
-                ->whereNotNull('department_id')
                 ->where('id', '!=', $user->getKey())
-                ->whereHas('employee', fn ($query) => $query->whereIn('job_title', $managerIds))
-                ->exists();
+                ->whereHas('employee', fn ($query) => $query->whereIn('job_title', $managerIds));
+
+            if ($canSelectCrossDepartmentApprover) {
+                $managerIsEligible = $managerQuery->exists();
+            } else {
+                $managerIsEligible = $managerQuery
+                    ->where('department_id', $user->department_id)
+                    ->whereNotNull('department_id')
+                    ->exists();
+            }
 
             if (! $managerIsEligible) {
-                $validator->errors()->add('manager_id', 'Pilih manager aktif dari departemen yang sama.');
+                $message = $requesterIsManager
+                    ? 'Pilih karyawan dengan jabatan BOD yang aktif sebagai approver cuti.'
+                    : ($requesterIsOfficer
+                        ? 'Pilih approver cuti yang aktif.'
+                        : 'Pilih manager aktif dari departemen yang sama.');
+                $validator->errors()->add('manager_id', $message);
             }
 
             $leaveType = LeaveType::findOrFail($this->integer('leave_type_id'));

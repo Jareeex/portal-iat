@@ -2,6 +2,7 @@
 
 use App\Models\Department;
 use App\Models\User;
+use App\Modules\Hr\Models\JobPosition;
 use App\Modules\Hr\Models\LeaveRequest;
 use App\Modules\Hr\Models\LeaveType;
 use Illuminate\Support\Facades\Storage;
@@ -87,6 +88,133 @@ test('all users can submit leave requests only to an active manager in their dep
     $this->getJson('/api/hr/leave-requests/manager-inbox')
         ->assertOk()
         ->assertJsonCount(0, 'data');
+});
+
+test('BOD officer SPV and chief are eligible leave approvers', function () {
+    $employee = User::factory()->create(['is_active' => true]);
+    $department = Department::create([
+        'name' => fake()->unique()->company(),
+        'code' => fake()->unique()->bothify('D##'),
+        'has_full_access' => false,
+    ]);
+    $employee->update(['department_id' => $department->id]);
+    $approvers = collect(['BOD', 'Officer', 'SPV', 'Chief'])->map(
+        function (string $jobTitle) use ($department): User {
+            $user = User::factory()->create([
+                'department_id' => $department->id,
+                'is_active' => true,
+            ]);
+            $user->employee()->update(['job_title' => $jobTitle]);
+
+            return $user;
+        },
+    );
+    $leaveType = LeaveType::where('code', 'ANNUAL')->firstOrFail();
+
+    Sanctum::actingAs($employee);
+    $managerOptions = $this->getJson('/api/hr/leave-managers')
+        ->assertOk()
+        ->assertJsonCount(4)
+        ->json();
+
+    expect(collect($managerOptions)->pluck('job_title')->sort()->values()->all())
+        ->toBe(['BOD', 'Chief', 'Officer', 'SPV']);
+
+    $approver = $approvers->first(
+        fn (User $user): bool => $user->employee->job_title === 'Chief',
+    );
+    $this->postJson('/api/hr/leave-requests', hrLeaveRequestPayload($leaveType, $approver))
+        ->assertCreated();
+    $leave = LeaveRequest::firstOrFail();
+
+    Sanctum::actingAs($approver);
+    $this->getJson('/api/hr/leave-requests/manager-inbox')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $leave->id);
+    $this->postJson("/api/hr/leave-requests/{$leave->id}/manager-approve")
+        ->assertOk()
+        ->assertJsonPath('data.status', LeaveRequest::HR_PENDING);
+
+    expect($leave->fresh()->manager_reviewed_by)->toBe($approver->id);
+});
+
+test('manager leave requests go directly to a BOD approver across departments', function () {
+    $employee = User::factory()->create(['is_active' => true]);
+    $sameDepartmentManager = assignHrLeaveManager($employee);
+    $employee->employee()->update(['job_title' => 'Manager']);
+    $bod = User::factory()->create([
+        'department_id' => null,
+        'is_active' => true,
+    ]);
+    $bod->employee()->update(['job_title' => 'BOD']);
+    JobPosition::query()
+        ->where('name', 'BOD')
+        ->update(['is_leave_manager' => false]);
+    $leaveType = LeaveType::where('code', 'ANNUAL')->firstOrFail();
+    $payload = hrLeaveRequestPayload($leaveType, $bod);
+
+    Sanctum::actingAs($employee);
+    $this->getJson('/api/hr/leave-managers')
+        ->assertOk()
+        ->assertJsonCount(1)
+        ->assertJsonPath('0.id', $bod->id)
+        ->assertJsonPath('0.job_title', 'BOD');
+
+    $this->postJson('/api/hr/leave-requests', [
+        ...$payload,
+        'manager_id' => $sameDepartmentManager->id,
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('manager_id');
+
+    $this->postJson('/api/hr/leave-requests', $payload)
+        ->assertCreated();
+    $leave = LeaveRequest::firstOrFail();
+
+    Sanctum::actingAs($bod);
+    $this->getJson('/api/hr/leave-requests/manager-inbox')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $leave->id);
+    $this->postJson("/api/hr/leave-requests/{$leave->id}/manager-approve")
+        ->assertOk()
+        ->assertJsonPath('data.status', LeaveRequest::HR_PENDING);
+});
+
+test('officer can choose an active leave approver from another department', function () {
+    $officer = User::factory()->create(['is_active' => true]);
+    $officerDepartment = Department::create([
+        'name' => fake()->unique()->company(),
+        'code' => fake()->unique()->bothify('D##'),
+        'has_full_access' => false,
+    ]);
+    $officer->update(['department_id' => $officerDepartment->id]);
+    $officer->employee()->update(['job_title' => 'Officer']);
+
+    $otherDepartment = Department::create([
+        'name' => fake()->unique()->company(),
+        'code' => fake()->unique()->bothify('D##'),
+        'has_full_access' => false,
+    ]);
+    $manager = User::factory()->create([
+        'department_id' => $otherDepartment->id,
+        'is_active' => true,
+    ]);
+    $manager->employee()->update(['job_title' => 'Manager']);
+    $leaveType = LeaveType::where('code', 'ANNUAL')->firstOrFail();
+
+    Sanctum::actingAs($officer);
+    $this->getJson('/api/hr/leave-managers')
+        ->assertOk()
+        ->assertJsonCount(1)
+        ->assertJsonPath('0.id', $manager->id);
+
+    $this->postJson('/api/hr/leave-requests', hrLeaveRequestPayload($leaveType, $manager))
+        ->assertCreated();
+    $leave = LeaveRequest::firstOrFail();
+
+    Sanctum::actingAs($manager);
+    $this->getJson('/api/hr/leave-requests/manager-inbox')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $leave->id);
 });
 
 test('the selected manager approves first and only then the request enters HR inbox', function () {
@@ -200,8 +328,13 @@ test('HR can manage job positions and employee job titles must use an active pos
     $positions = $this->getJson('/api/hr/job-positions')
         ->assertOk()
         ->assertJsonPath('0.name', 'OJT')
+        ->assertJsonPath('1.is_leave_manager', true)
+        ->assertJsonPath('2.is_leave_manager', true)
+        ->assertJsonPath('3.is_leave_manager', true)
         ->assertJsonPath('4.name', 'Manager')
-        ->assertJsonPath('4.is_leave_manager', true);
+        ->assertJsonPath('4.is_leave_manager', true)
+        ->assertJsonPath('5.name', 'BOD')
+        ->assertJsonPath('5.is_leave_manager', true);
 
     $position = $this->postJson('/api/hr/job-positions', [
         'name' => 'Director',

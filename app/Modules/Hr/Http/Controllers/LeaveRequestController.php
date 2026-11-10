@@ -45,15 +45,21 @@ class LeaveRequestController extends Controller
             abort(401);
         }
 
-        $managerPositions = JobPosition::active()
-            ->where('is_leave_manager', true)
-            ->pluck('name');
+        $requesterJobTitle = $user->employeeProfile()->job_title;
+        $requesterIsManager = $requesterJobTitle === 'Manager';
+        $requesterIsOfficer = $requesterJobTitle === 'Officer';
+        $canSelectCrossDepartmentApprover = $requesterIsManager || $requesterIsOfficer;
+        $managerPositions = $requesterIsManager
+            ? collect(['BOD'])
+            : JobPosition::active()->where('is_leave_manager', true)->pluck('name');
 
         $managers = User::query()
             ->with('employee:id,user_id,name,employee_number,job_title')
             ->where('is_active', true)
-            ->whereNotNull('department_id')
-            ->where('department_id', $user->department_id)
+            ->when(! $canSelectCrossDepartmentApprover, function ($query) use ($user): void {
+                $query->whereNotNull('department_id')
+                    ->where('department_id', $user->department_id);
+            })
             ->where('id', '!=', $user->getKey())
             ->whereHas('employee', fn ($query) => $query->whereIn('job_title', $managerPositions))
             ->orderBy('name')
