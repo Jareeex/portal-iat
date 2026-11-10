@@ -198,99 +198,113 @@ export default function TrainingIndexPage() {
                     <h2>Training Record Crew</h2>
                     <p className="muted">Data per {data?.period ?? '-'}</p>
                 </div>
-                {data?.can.manage && (
-                    <div className="training-actions">
-                        <select
-                            value={exportScope}
-                            onChange={(event) =>
-                                setExportScope(event.target.value as ExportScope)
-                            }
-                            aria-label="Jenis export PDF"
-                        >
-                            <option value="all">Semua crew</option>
-                            <option value="crew">Per crew</option>
-                            <option value="aircraft">Per pesawat</option>
-                        </select>
-                        {exportScope === 'crew' && (
-                            <select
-                                value={exportCrewId}
-                                onChange={(event) =>
-                                    setExportCrewId(event.target.value)
-                                }
-                                aria-label="Pilih crew untuk export"
-                            >
-                                <option value="">Pilih crew</option>
-                                {data.crews.map((crew) => (
-                                    <option key={crew.id} value={crew.id}>
-                                        {crew.name}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                        {exportScope === 'aircraft' && (
-                            <select
-                                value={exportAircraft}
-                                onChange={(event) =>
-                                    setExportAircraft(event.target.value)
-                                }
-                                aria-label="Pilih pesawat untuk export"
-                            >
-                                <option value="">Pilih pesawat</option>
-                                {data.aircrafts.map((aircraft) => (
-                                    <option
-                                        key={aircraft.id}
-                                        value={aircraft.key}
-                                    >
-                                        {aircraft.label}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                        <button
-                            type="button"
-                            className="btn btn-ghost"
-                            onClick={() => void downloadPdf()}
-                            disabled={
-                                (exportScope === 'crew' && !exportCrewId) ||
-                                (exportScope === 'aircraft' && !exportAircraft)
-                            }
-                        >
-                            Export PDF
-                        </button>
-                        <form
-                            className="training-aircraft-form"
-                            onSubmit={(event) => void addAircraft(event)}
-                        >
-                            <input
-                                type="text"
-                                value={aircraftName}
-                                onChange={(event) =>
-                                    setAircraftName(event.target.value)
-                                }
-                                placeholder="Nama pesawat baru"
-                                aria-label="Nama pesawat baru"
-                                maxLength={120}
-                                required
-                            />
-                            <button
-                                type="submit"
-                                className="btn btn-ghost"
-                                disabled={
-                                    addingAircraft || !aircraftName.trim()
-                                }
-                            >
-                                Tambah pesawat
-                            </button>
-                        </form>
-                        <Link
-                            to="/training/crews/create"
-                            className="btn btn-primary"
-                        >
-                            + Tambah crew
-                        </Link>
-                    </div>
-                )}
             </header>
+
+            {data?.can.manage && (
+                <section className="panel training-toolbar">
+                    <div className="training-toolbar-group">
+                        <strong>Export data</strong>
+                        <div className="training-actions">
+                            <select
+                                value={exportScope}
+                                onChange={(event) =>
+                                    setExportScope(
+                                        event.target.value as ExportScope,
+                                    )
+                                }
+                                aria-label="Jenis export PDF"
+                            >
+                                <option value="all">Semua crew</option>
+                                <option value="crew">Per crew</option>
+                                <option value="aircraft">Per pesawat</option>
+                            </select>
+                            {exportScope === 'crew' && (
+                                <select
+                                    value={exportCrewId}
+                                    onChange={(event) =>
+                                        setExportCrewId(event.target.value)
+                                    }
+                                    aria-label="Pilih crew untuk export"
+                                >
+                                    <option value="">Pilih crew</option>
+                                    {data.crews.map((crew) => (
+                                        <option key={crew.id} value={crew.id}>
+                                            {crew.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                            {exportScope === 'aircraft' && (
+                                <select
+                                    value={exportAircraft}
+                                    onChange={(event) =>
+                                        setExportAircraft(event.target.value)
+                                    }
+                                    aria-label="Pilih pesawat untuk export"
+                                >
+                                    <option value="">Pilih pesawat</option>
+                                    {data.aircrafts.map((aircraft) => (
+                                        <option
+                                            key={aircraft.id}
+                                            value={aircraft.key}
+                                        >
+                                            {aircraft.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => void downloadPdf()}
+                                disabled={
+                                    (exportScope === 'crew' && !exportCrewId) ||
+                                    (exportScope === 'aircraft' &&
+                                        !exportAircraft)
+                                }
+                            >
+                                Export PDF
+                            </button>
+                        </div>
+                    </div>
+                    <div className="training-toolbar-group">
+                        <strong>Kelola crew</strong>
+                        <div className="training-actions">
+                            <form
+                                className="training-aircraft-form"
+                                onSubmit={(event) => void addAircraft(event)}
+                            >
+                                <input
+                                    type="text"
+                                    value={aircraftName}
+                                    onChange={(event) =>
+                                        setAircraftName(event.target.value)
+                                    }
+                                    placeholder="Nama pesawat baru"
+                                    aria-label="Nama pesawat baru"
+                                    maxLength={120}
+                                    required
+                                />
+                                <button
+                                    type="submit"
+                                    className="btn btn-ghost"
+                                    disabled={
+                                        addingAircraft || !aircraftName.trim()
+                                    }
+                                >
+                                    Tambah pesawat
+                                </button>
+                            </form>
+                            <Link
+                                to="/training/crews/create"
+                                className="btn btn-primary"
+                            >
+                                + Tambah crew
+                            </Link>
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {error && <Alert>{error}</Alert>}
             {message && <Alert kind="success">{message}</Alert>}

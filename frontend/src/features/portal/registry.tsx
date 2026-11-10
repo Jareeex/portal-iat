@@ -4,6 +4,7 @@ import TransactionsPage from '../transactions/TransactionsPage';
 import TrainingPage from '../training/TrainingRootPage';
 import EmployeesPage from '../hr/EmployeesPage';
 import AssetsPage from '../it-assets/AssetsPage';
+import TrainingProgramPage from '../../training-program/TrainingProgramPage';
 
 /**
  * Daftarkan komponen halaman asli di sini, key = `pages.key` di database.
@@ -20,4 +21,5 @@ export const pageRegistry: Record<string, ComponentType> = {
     reports: ReportsPage,
     transactions: TransactionsPage,
     training: TrainingPage,
+    'training-program': TrainingProgramPage,
 };

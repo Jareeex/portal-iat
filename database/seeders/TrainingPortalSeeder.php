@@ -29,5 +29,6 @@ class TrainingPortalSeeder extends Seeder
         );
 
         $this->call(TrainingRecordSeeder::class);
+        $this->call(TrainingProgramSeeder::class);
     }
 }
