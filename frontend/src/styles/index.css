@@ -479,6 +479,104 @@ select:focus-visible {
     align-items: center;
     gap: 12px;
 }
+.notification-menu {
+    position: relative;
+}
+.notification-toggle {
+    position: relative;
+    display: grid;
+    place-items: center;
+}
+.notification-toggle svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+.notification-badge {
+    position: absolute;
+    top: -3px;
+    right: -5px;
+    min-width: 17px;
+    padding: 1px 4px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+.notification-panel {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 12px);
+    right: 0;
+    width: min(380px, calc(100vw - 28px));
+    max-height: min(70vh, 520px);
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+}
+.notification-panel > header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+}
+.notification-panel ul {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.notification-item {
+    display: grid;
+    width: 100%;
+    gap: 5px;
+    padding: 12px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+}
+.notification-item:hover,
+.notification-unread {
+    background: var(--accent-bg);
+}
+.notification-item span,
+.notification-item small,
+.notification-empty,
+.notification-error {
+    color: var(--muted);
+}
+.notification-item small {
+    font-size: 11px;
+}
+.notification-empty,
+.notification-error {
+    margin: 0;
+    padding: 16px;
+}
+.notification-error {
+    color: var(--danger);
+}
+.notification-read-all {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--primary);
+    font: inherit;
+    cursor: pointer;
+}
 .navbar-user-text {
     display: flex;
     flex-direction: column;

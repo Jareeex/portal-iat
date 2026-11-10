@@ -1,7 +1,6 @@
 import api from './api';
 import type {
     CrewFormData,
-    ImportResult,
     TrainingDetailResponse,
     TrainingIndexResponse,
 } from '../features/training/training';
@@ -79,18 +78,14 @@ export const trainingService = {
                 dates,
             )
             .then((response) => response.data),
-    exportCsv: (group?: string) =>
+    exportPdf: (filters: { crewId?: number; aircraft?: string } = {}) =>
         api
             .get<Blob>('/training/export', {
-                params: group ? { group } : {},
+                params: {
+                    ...(filters.crewId ? { crew_id: filters.crewId } : {}),
+                    ...(filters.aircraft ? { aircraft: filters.aircraft } : {}),
+                },
                 responseType: 'blob',
             })
             .then((response) => response.data),
-    importExcel: (file: File) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        return api
-            .post<ImportResult>('/training/import', formData)
-            .then((response) => response.data);
-    },
 };

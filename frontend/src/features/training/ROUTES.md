@@ -12,8 +12,7 @@ hanya tersedia untuk master.
 | PUT    | `/api/training/crews/{crew}`                | Ubah profil crew          |
 | DELETE | `/api/training/crews/{crew}`                | Hapus crew beserta record |
 | PUT    | `/api/training/crews/{crew}/records/{type}` | Simpan tanggal record     |
-| GET    | `/api/training/export`                      | Unduh CSV                 |
-| POST   | `/api/training/import`                      | Impor CSV hasil export    |
+| GET    | `/api/training/export`                      | Unduh PDF                 |
 
 Data sumber lokal berada di `database/seeders/data/training.json` dan sengaja
 diabaikan Git karena berisi informasi pribadi crew. Jalankan `TrainingPortalSeeder`

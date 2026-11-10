@@ -2,9 +2,7 @@ import {
     useCallback,
     useEffect,
     useMemo,
-    useRef,
     useState,
-    type ChangeEvent,
     type FormEvent,
 } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,6 +12,7 @@ import { errorMessage } from '../../utils/error';
 import type { CrewRecord, TrainingIndexResponse } from './training';
 
 type StatusFilter = 'all' | 'expired' | 'soon';
+type ExportScope = 'all' | 'crew' | 'aircraft';
 
 function StatusBar({ crew }: { crew: CrewRecord }) {
     const total = crew.expired + crew.soon + crew.valid || 1;
@@ -43,6 +42,9 @@ export default function TrainingIndexPage() {
     const [data, setData] = useState<TrainingIndexResponse | null>(null);
     const [query, setQuery] = useState('');
     const [group, setGroup] = useState('all');
+    const [exportScope, setExportScope] = useState<ExportScope>('all');
+    const [exportCrewId, setExportCrewId] = useState('');
+    const [exportAircraft, setExportAircraft] = useState('');
     const [aircraftAssignments, setAircraftAssignments] = useState<
         Record<number, string>
     >({});
@@ -59,8 +61,6 @@ export default function TrainingIndexPage() {
     const [removingAircraftId, setRemovingAircraftId] = useState<number | null>(
         null,
     );
-    const fileInput = useRef<HTMLInputElement>(null);
-
     const load = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -97,39 +97,24 @@ export default function TrainingIndexPage() {
         });
     }, [data, group, query, status]);
 
-    async function downloadCsv(): Promise<void> {
+    async function downloadPdf(): Promise<void> {
         try {
-            const file = await trainingService.exportCsv(
-                group === 'all' ? undefined : group,
-            );
+            const file = await trainingService.exportPdf({
+                ...(exportScope === 'crew' && exportCrewId
+                    ? { crewId: Number(exportCrewId) }
+                    : {}),
+                ...(exportScope === 'aircraft' && exportAircraft
+                    ? { aircraft: exportAircraft }
+                    : {}),
+            });
             const url = URL.createObjectURL(file);
             const anchor = document.createElement('a');
             anchor.href = url;
-            anchor.download = 'training-record.csv';
+            anchor.download = 'training-record.pdf';
             anchor.click();
             URL.revokeObjectURL(url);
         } catch (cause) {
             setError(errorMessage(cause));
-        }
-    }
-
-    async function importExcel(
-        event: ChangeEvent<HTMLInputElement>,
-    ): Promise<void> {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        try {
-            const result = await trainingService.importExcel(file);
-            setMessage(
-                result.errors.length
-                    ? `${result.message} ${result.errors.join('; ')}`
-                    : `${result.message} Atur kelompok pesawat crew baru pada daftar di bawah.`,
-            );
-            await load();
-        } catch (cause) {
-            setError(errorMessage(cause));
-        } finally {
-            event.target.value = '';
         }
     }
 
@@ -215,27 +200,63 @@ export default function TrainingIndexPage() {
                 </div>
                 {data?.can.manage && (
                     <div className="training-actions">
+                        <select
+                            value={exportScope}
+                            onChange={(event) =>
+                                setExportScope(event.target.value as ExportScope)
+                            }
+                            aria-label="Jenis export PDF"
+                        >
+                            <option value="all">Semua crew</option>
+                            <option value="crew">Per crew</option>
+                            <option value="aircraft">Per pesawat</option>
+                        </select>
+                        {exportScope === 'crew' && (
+                            <select
+                                value={exportCrewId}
+                                onChange={(event) =>
+                                    setExportCrewId(event.target.value)
+                                }
+                                aria-label="Pilih crew untuk export"
+                            >
+                                <option value="">Pilih crew</option>
+                                {data.crews.map((crew) => (
+                                    <option key={crew.id} value={crew.id}>
+                                        {crew.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                        {exportScope === 'aircraft' && (
+                            <select
+                                value={exportAircraft}
+                                onChange={(event) =>
+                                    setExportAircraft(event.target.value)
+                                }
+                                aria-label="Pilih pesawat untuk export"
+                            >
+                                <option value="">Pilih pesawat</option>
+                                {data.aircrafts.map((aircraft) => (
+                                    <option
+                                        key={aircraft.id}
+                                        value={aircraft.key}
+                                    >
+                                        {aircraft.label}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                         <button
                             type="button"
                             className="btn btn-ghost"
-                            onClick={() => void downloadCsv()}
+                            onClick={() => void downloadPdf()}
+                            disabled={
+                                (exportScope === 'crew' && !exportCrewId) ||
+                                (exportScope === 'aircraft' && !exportAircraft)
+                            }
                         >
-                            Export CSV
+                            Export PDF
                         </button>
-                        <button
-                            type="button"
-                            className="btn btn-ghost"
-                            onClick={() => fileInput.current?.click()}
-                        >
-                            Import Excel
-                        </button>
-                        <input
-                            ref={fileInput}
-                            className="training-file-input"
-                            type="file"
-                            accept=".xlsx"
-                            onChange={(event) => void importExcel(event)}
-                        />
                         <form
                             className="training-aircraft-form"
                             onSubmit={(event) => void addAircraft(event)}

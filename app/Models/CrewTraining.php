@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property-read Carbon|null $last_check
@@ -38,6 +39,12 @@ class CrewTraining extends Model
     public function type(): BelongsTo
     {
         return $this->belongsTo(TrainingType::class, 'training_type_id');
+    }
+
+    /** @return HasMany<TrainingReminderLog, $this> */
+    public function reminderLogs(): HasMany
+    {
+        return $this->hasMany(TrainingReminderLog::class);
     }
 
     public static function daysLeft(?CarbonInterface $next): ?int

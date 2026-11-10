@@ -6,6 +6,7 @@ use App\Http\Controllers\Master\DepartmentController;
 use App\Http\Controllers\Master\PageController;
 use App\Http\Controllers\Master\UserController;
 use App\Http\Controllers\User\DashboardController;
+use App\Http\Controllers\User\NotificationController;
 use App\Http\Controllers\User\ReportController;
 use App\Http\Controllers\User\TrainingController;
 use Illuminate\Support\Facades\Route;
@@ -34,12 +35,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ---------- User: dashboard + fitur yang di-assign master ----------
     Route::get('dashboard', [DashboardController::class, 'index']);
+    Route::get('notifications', [NotificationController::class, 'index']);
+    Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
+        ->whereUuid('notification');
 
     Route::get('reports', [ReportController::class, 'index'])->middleware('page.access:reports');
     Route::prefix('training')->middleware('page.access:training')->group(function () {
         Route::get('/', [TrainingController::class, 'index']);
         Route::get('export', [TrainingController::class, 'export'])->middleware('page.access:training,edit');
-        Route::post('import', [TrainingController::class, 'import'])->middleware('page.access:training,edit');
         Route::post('aircraft', [TrainingController::class, 'storeAircraft'])->middleware('page.access:training,edit');
         Route::delete('aircraft/{aircraft}', [TrainingController::class, 'destroyAircraft'])
             ->middleware('page.access:training,edit');
