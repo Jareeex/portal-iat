@@ -6,9 +6,11 @@ use App\Models\User;
 use App\Modules\Hr\Models\Employee;
 use App\Modules\Hr\Models\JobPosition;
 use App\Services\AccessService;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
-test('every account has one employee profile and the directory includes master accounts', function () {
+test('every account has one employee profile and the directory includes master employees', function () {
     Page::create([
         'key' => 'hr-employees',
         'name' => 'Employees',
@@ -26,11 +28,14 @@ test('every account has one employee profile and the directory includes master a
 
     Sanctum::actingAs($master);
 
-    $this->getJson('/api/hr/employees')
+    $response = $this->getJson('/api/hr/employees')
         ->assertOk()
         ->assertJsonCount(2, 'data')
-        ->assertJsonFragment(['name' => $master->name, 'role' => User::ROLE_MASTER])
-        ->assertJsonFragment(['name' => $user->name, 'role' => User::ROLE_USER]);
+        ->assertJsonMissingPath('data.0.user.email')
+        ->assertJsonMissingPath('data.1.user.email');
+
+    expect(collect($response->json('data'))->pluck('name')->all())
+        ->toContain($master->name, $user->name);
 });
 
 test('users with employee page access can view the directory but cannot edit profiles', function () {
@@ -60,7 +65,7 @@ test('users with employee page access can view the directory but cannot edit pro
     $this->getJson('/api/hr/employees')
         ->assertOk()
         ->assertJsonCount(2, 'data')
-        ->assertJsonFragment(['name' => $master->name, 'role' => User::ROLE_MASTER]);
+        ->assertJsonFragment(['name' => $master->name]);
 
     $this->putJson("/api/hr/employees/{$hrUser->employee->id}", [
         'job_title' => 'HR Specialist',
@@ -84,7 +89,6 @@ test('master updates employee profile without changing the linked user account',
 
     $response
         ->assertOk()
-        ->assertJsonPath('data.user.name', 'Original Name')
         ->assertJsonPath('data.job_title', 'Pilot')
         ->assertJsonPath('data.employee_number', 'IAT-1001');
 
@@ -171,6 +175,39 @@ test('employee editors can create employees without accounts but viewers cannot'
         'email' => 'unauthorized.account@example.com',
         'password' => 'password123',
     ])->assertForbidden();
+});
+
+test('master can upload photos when creating and updating employee profiles', function () {
+    Storage::fake('public');
+    $master = User::factory()->create([
+        'role' => User::ROLE_MASTER,
+        'is_active' => true,
+    ]);
+
+    Sanctum::actingAs($master);
+
+    $response = $this->post('/api/hr/employees', [
+        'name' => 'Photo Employee',
+        'photo' => UploadedFile::fake()->image('employee.png'),
+    ], ['Accept' => 'application/json'])
+        ->assertCreated()
+        ->assertJsonStructure(['data' => ['photo_url']]);
+
+    $employee = Employee::findOrFail($response->json('data.id'));
+    $firstPhotoPath = $employee->photo_path;
+    Storage::disk('public')->assertExists($firstPhotoPath);
+
+    $this->post("/api/hr/employees/{$employee->id}", [
+        '_method' => 'PUT',
+        'photo' => UploadedFile::fake()->image('updated-employee.png'),
+    ], ['Accept' => 'application/json'])
+        ->assertOk()
+        ->assertJsonStructure(['data' => ['photo_url']]);
+
+    $employee->refresh();
+    expect($employee->photo_path)->not->toBe($firstPhotoPath);
+    Storage::disk('public')->assertMissing($firstPhotoPath);
+    Storage::disk('public')->assertExists($employee->photo_path);
 });
 
 test('master can link an employee profile when creating its account', function () {

@@ -59,14 +59,10 @@ export interface EmployeeProfile {
     job_title: string | null;
     office: string | null;
     employment_status: string | null;
+    photo_url: string | null;
     join_date: string | null;
     end_date: string | null;
     user: {
-        id: number;
-        name: string;
-        email: string;
-        role: Role;
-        is_active: boolean;
         department: DepartmentRef | null;
     } | null;
 }

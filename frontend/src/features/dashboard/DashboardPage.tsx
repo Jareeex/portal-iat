@@ -98,11 +98,25 @@ export default function DashboardPage() {
             ) : (
                 <div className="card-grid">
                     {pages.map((p) => (
-                        <Link key={p.id} to={p.route} className="feature-card">
+                        <Link
+                            key={p.id}
+                            to={
+                                p.name.trim().toLowerCase() === 'leave' ||
+                                p.key.trim().toLowerCase() === 'leave' ||
+                                p.route.trim().toLowerCase() === '/leave'
+                                    ? '/leave-request'
+                                    : p.route
+                            }
+                            className="feature-card"
+                        >
                             <span className="feature-icon">
                                 <NavIcon name={p.icon ?? p.key} />
                             </span>
-                            <strong>{p.name}</strong>
+                            <strong>
+                                {p.name.trim().toLowerCase() === 'leave'
+                                    ? 'Leave Request'
+                                    : p.name}
+                            </strong>
                             <span className="muted">
                                 {p.description ?? p.route}
                             </span>

@@ -57,7 +57,15 @@ class EmployeeController extends Controller
 
     public function store(StoreEmployeeRequest $request): EmployeeResource
     {
-        $employee = Employee::create($request->validated());
+        $data = $request->validated();
+        $photo = $request->file('photo');
+        unset($data['photo']);
+
+        $employee = Employee::create($data);
+        if ($photo) {
+            $employee->replacePhoto($photo);
+            $employee->save();
+        }
 
         return new EmployeeResource($employee->load('user.department'));
     }
