@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Sidebar, type NavItem } from '../components/sidebar/Sidebar';
+import {
+    Sidebar,
+    type NavEntry,
+    type NavItem,
+} from '../components/sidebar/Sidebar';
 import { Navbar } from '../components/navbar/Navbar';
 import { useAuth } from '../hooks/useAuth';
 import { usePermission } from '../hooks/usePermission';
@@ -13,8 +17,29 @@ export default function UserLayout() {
     const [unassignedTickets, setUnassignedTickets] = useState(0);
     const isItStaff = isMaster || user?.department?.code === 'IT';
 
-    const items = useMemo<NavItem[]>(
-        () => [
+    const items = useMemo<NavEntry[]>(() => {
+        const availablePages = pages.filter(
+            (page) =>
+                page.route !== '/dashboard' &&
+                page.key !== 'it-tickets' &&
+                page.key.toLowerCase() !== 'leave' &&
+                page.name.trim().toLowerCase() !== 'leave' &&
+                page.route.trim().toLowerCase() !== '/leave',
+        );
+        const trainingPage = availablePages.find(
+            (page) => page.key.trim().toLowerCase() === 'training',
+        );
+        const trainingProgramPage = availablePages.find((page) => {
+            const key = page.key.trim().toLowerCase();
+            const name = page.name.trim().toLowerCase();
+            return key === 'training-program' || name === 'training program';
+        });
+        const trainingPages = new Set(
+            [trainingPage, trainingProgramPage].filter(
+                (page) => page !== undefined,
+            ),
+        );
+        const menuItems: NavEntry[] = [
             { to: '/dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
             { to: '/leave-request', label: 'Leave Request', icon: 'calendar' },
             {
@@ -23,23 +48,43 @@ export default function UserLayout() {
                 icon: 'ticket',
                 ...(isItStaff ? { badge: unassignedTickets } : {}),
             },
-            ...pages
-                .filter(
-                    (p) =>
-                        p.route !== '/dashboard' &&
-                        p.key !== 'it-tickets' &&
-                        p.key.toLowerCase() !== 'leave' &&
-                        p.name.trim().toLowerCase() !== 'leave' &&
-                        p.route.trim().toLowerCase() !== '/leave',
-                )
-                .map((p) => ({
-                    to: p.route,
-                    label: p.name,
-                    icon: p.icon ?? p.key,
+        ];
+
+        const trainingChildren: NavItem[] = [];
+        if (trainingPage || trainingProgramPage) {
+            trainingChildren.push({
+                to: trainingProgramPage?.route ?? '/training/program',
+                label: 'Training Program',
+                icon: trainingProgramPage?.icon ?? 'graduation-cap',
+            });
+        }
+        if (trainingPage) {
+            trainingChildren.push({
+                to: trainingPage.route,
+                label: 'Training Record',
+                icon: trainingPage.icon ?? 'graduation-cap',
+            });
+        }
+        if (trainingChildren.length > 0) {
+            menuItems.push({
+                label: 'Training',
+                icon: 'graduation-cap',
+                children: trainingChildren,
+            });
+        }
+
+        menuItems.push(
+            ...availablePages
+                .filter((page) => !trainingPages.has(page))
+                .map((page) => ({
+                    to: page.route,
+                    label: page.name,
+                    icon: page.icon ?? page.key,
                 })),
-        ],
-        [isItStaff, pages, unassignedTickets],
-    );
+        );
+
+        return menuItems;
+    }, [isItStaff, pages, unassignedTickets]);
 
     return (
         <div className="shell">
