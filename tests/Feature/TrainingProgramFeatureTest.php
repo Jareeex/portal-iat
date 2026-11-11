@@ -86,6 +86,21 @@ test('training managers can view plans, generate them and save actual training',
         ->assertJsonPath('programs.0.plans.0.month', $dueDate->month)
         ->assertJsonPath('programs.0.plans.0.due_date', $dueDate->toDateString());
 
+    $nextYearDueDate = Carbon::create($year + 1, 3, 15);
+    $crew->trainings()->firstOrFail()->update([
+        'next_check' => $nextYearDueDate->toDateString(),
+    ]);
+
+    $this->postJson('/api/training/program/plan/generate', ['year' => $year])
+        ->assertOk()
+        ->assertJsonPath('created', 0)
+        ->assertJsonPath('updated', 0);
+
+    $this->getJson("/api/training/program?year=$year")
+        ->assertOk()
+        ->assertJsonCount(1, 'programs.0.plans')
+        ->assertJsonPath('programs.0.plans.0.due_date', $dueDate->toDateString());
+
     $this->postJson('/api/training/program/plan/generate', ['year' => $year])
         ->assertOk()
         ->assertJsonPath('created', 0)
