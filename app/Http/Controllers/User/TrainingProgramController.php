@@ -136,6 +136,12 @@ class TrainingProgramController extends Controller
                     }
                 }
 
+                $plans = TrainingProgramPlan::query()
+                    ->where('program_id', $program->id)
+                    ->where('year', $year)
+                    ->get()
+                    ->keyBy('crew_id');
+
                 foreach ($due as $crewId => $d) {
                     if ($d->year > $year) {
                         continue;
@@ -145,19 +151,20 @@ class TrainingProgramController extends Controller
                         'due_date' => $d->toDateString(),
                         'overdue' => $d->year < $year,
                     ];
-                    $plan = TrainingProgramPlan::firstOrNew([
-                        'program_id' => $program->id,
-                        'crew_id' => $crewId,
-                        'year' => $year,
-                    ]);
 
-                    if (! $plan->exists) {
-                        $plan->fill($attributes)->save();
+                    if (! $plans->has($crewId)) {
+                        TrainingProgramPlan::create([
+                            'program_id' => $program->id,
+                            'crew_id' => $crewId,
+                            'year' => $year,
+                            ...$attributes,
+                        ]);
                         $created++;
 
                         continue;
                     }
 
+                    $plan = $plans->get($crewId);
                     if (
                         (int) $plan->month !== $attributes['month']
                         || $plan->due_date?->toDateString() !== $attributes['due_date']
