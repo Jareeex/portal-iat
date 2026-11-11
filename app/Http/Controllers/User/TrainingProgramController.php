@@ -111,18 +111,17 @@ class TrainingProgramController extends Controller
 
     // ---------------------------------------------------------------- PLAN dari last check
     /**
-     * Susun plan satu tahun: tiap crew yang punya item training pada program ini ditaruh di bulan jatuh temponya
-     * (next check; kalau kosong = last check + masa berlaku). Yang sudah lewat sebelum tahun itu -> Januari (overdue).
-     * Hanya MENAMBAH entri yang belum ada, jadi plan yang sudah diubah tidak ditimpa.
-     * Jalankan di awal tahun / sebelum realisasi mengubah last check.
+     * Susun plan satu tahun dari next check, atau last check + masa berlaku jika next check kosong.
+     * Jatuh tempo yang sudah lewat sebelum tahun itu ditempatkan di Januari sebagai overdue.
      */
     public function generatePlan(Request $request): JsonResponse
     {
         $this->authorizeManage($request);
         $year = (int) $request->validate(['year' => 'required|integer|min:2000|max:2100'])['year'];
         $created = 0;
+        $updated = 0;
 
-        DB::transaction(function () use ($year, &$created) {
+        DB::transaction(function () use ($year, &$created, &$updated) {
             foreach (TrainingProgram::with('types:id,validity')->get() as $program) {
                 if ($program->types->isEmpty()) {
                     continue;
@@ -141,20 +140,40 @@ class TrainingProgramController extends Controller
                     if ($d->year > $year) {
                         continue;
                     }
-                    $plan = TrainingProgramPlan::firstOrCreate(
-                        ['program_id' => $program->id, 'crew_id' => $crewId, 'year' => $year],
-                        ['month' => $d->year < $year ? 1 : $d->month, 'due_date' => $d->toDateString(), 'overdue' => $d->year < $year],
-                    );
-                    if ($plan->wasRecentlyCreated) {
+                    $attributes = [
+                        'month' => $d->year < $year ? 1 : $d->month,
+                        'due_date' => $d->toDateString(),
+                        'overdue' => $d->year < $year,
+                    ];
+                    $plan = TrainingProgramPlan::firstOrNew([
+                        'program_id' => $program->id,
+                        'crew_id' => $crewId,
+                        'year' => $year,
+                    ]);
+
+                    if (! $plan->exists) {
+                        $plan->fill($attributes)->save();
                         $created++;
+
+                        continue;
+                    }
+
+                    if (
+                        (int) $plan->month !== $attributes['month']
+                        || $plan->due_date?->toDateString() !== $attributes['due_date']
+                        || $plan->overdue !== $attributes['overdue']
+                    ) {
+                        $plan->update($attributes);
+                        $updated++;
                     }
                 }
             }
         });
 
         return response()->json([
-            'message' => "Plan $year disusun dari last check: $created entri baru.",
+            'message' => "Plan $year disinkronkan: $created entri baru, $updated entri diperbarui.",
             'created' => $created,
+            'updated' => $updated,
         ]);
     }
 

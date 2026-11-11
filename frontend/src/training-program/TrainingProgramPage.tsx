@@ -90,7 +90,7 @@ export default function Program() {
     async function generatePlan(): Promise<void> {
         if (
             !window.confirm(
-                `Susun plan ${year} dari last check training? Hanya entri baru yang ditambahkan.`,
+                `Sinkronkan plan ${year} dari next check training? Plan yang sudah ada dapat diperbarui.`,
             )
         ) {
             return;
