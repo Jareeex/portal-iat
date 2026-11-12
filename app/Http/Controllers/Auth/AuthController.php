@@ -8,6 +8,7 @@ use App\Services\AccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -54,6 +55,33 @@ class AuthController extends Controller
             'user' => $this->userPayload($user),
             'pages' => $this->access->pagesFor($user),
         ]);
+    }
+
+    public function updatePassword(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User, 401);
+
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'confirmed', Password::defaults()],
+        ]);
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Password saat ini tidak sesuai.'],
+            ]);
+        }
+
+        $user->password = $data['password'];
+        $user->save();
+
+        if ($request->bearerToken() !== null) {
+            $currentToken = $user->currentAccessToken();
+            $user->tokens()->whereKeyNot($currentToken->getKey())->delete();
+        }
+
+        return response()->json(['message' => 'Password berhasil diperbarui.']);
     }
 
     public function logout(Request $request): JsonResponse

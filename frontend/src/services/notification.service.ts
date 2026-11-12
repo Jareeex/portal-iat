@@ -5,6 +5,12 @@ export interface UserNotification {
     data: {
         crew_id?: number;
         crew_name?: string;
+        trainings?: Array<{
+            training_name: string;
+            due_date: string;
+            reminder_label: string;
+            stage: string;
+        }>;
         training_name?: string;
         due_date?: string;
         reminder_label?: string;

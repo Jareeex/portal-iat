@@ -28,12 +28,13 @@ class SendTrainingReminders extends Command
     {
         $today = CarbonImmutable::today();
         $trainingPageId = Page::query()->where('key', 'training')->value('id');
+        $remindersByCrew = [];
         $sentCount = 0;
 
         CrewTraining::query()
             ->whereNotNull('next_check')
             ->with(['crew.user', 'type'])
-            ->chunkById(200, function ($records) use ($today, $trainingPageId, &$sentCount): void {
+            ->chunkById(200, function ($records) use ($today, $trainingPageId, &$remindersByCrew): void {
                 foreach ($records as $record) {
                     if ($record->next_check === null || $record->crew === null || $record->type === null) {
                         continue;
@@ -58,29 +59,52 @@ class SendTrainingReminders extends Command
                             continue;
                         }
 
-                        $recipient->notify(new TrainingExpiryNotification(
-                            crewId: $record->crew->id,
-                            crewName: $record->crew->name,
-                            trainingName: $record->type->name,
-                            dueDate: $dueDate->format('d/m/Y'),
-                            reminderLabel: self::REMINDER_LABELS[$stage],
-                            stage: $stage,
-                        ));
-
-                        if ($reminderLog === null) {
-                            $record->reminderLogs()->create([
-                                'recipient_user_id' => $recipient->id,
-                                'due_date' => $dueDate->toDateString(),
-                                'stage' => $stage,
-                            ]);
-                        } else {
-                            $reminderLog->touch();
-                        }
-
-                        $sentCount++;
+                        $remindersByCrew[$record->crew_id]['crew'] = $record->crew;
+                        $remindersByCrew[$record->crew_id]['recipients'][$recipient->id]['recipient'] = $recipient;
+                        $remindersByCrew[$record->crew_id]['recipients'][$recipient->id]['reminders'][] = [
+                            'record' => $record,
+                            'due_date' => $dueDate,
+                            'log' => $reminderLog,
+                            'stage' => $stage,
+                        ];
                     }
                 }
             });
+
+        foreach ($remindersByCrew as $crewReminder) {
+            foreach ($crewReminder['recipients'] as $recipientReminder) {
+                $recipient = $recipientReminder['recipient'];
+                $reminderItems = $recipientReminder['reminders'];
+
+                $recipient->notify(new TrainingExpiryNotification(
+                    crewId: $crewReminder['crew']->id,
+                    crewName: $crewReminder['crew']->name,
+                    trainings: array_map(
+                        fn (array $reminder): array => [
+                            'training_name' => $reminder['record']->type->name,
+                            'due_date' => $reminder['due_date']->format('d/m/Y'),
+                            'reminder_label' => self::REMINDER_LABELS[$reminder['stage']],
+                            'stage' => $reminder['stage'],
+                        ],
+                        $reminderItems,
+                    ),
+                ));
+
+                foreach ($reminderItems as $reminder) {
+                    if ($reminder['log'] === null) {
+                        $reminder['record']->reminderLogs()->create([
+                            'recipient_user_id' => $recipient->id,
+                            'due_date' => $reminder['due_date']->toDateString(),
+                            'stage' => $reminder['stage'],
+                        ]);
+                    } else {
+                        $reminder['log']->touch();
+                    }
+                }
+
+                $sentCount++;
+            }
+        }
 
         $this->info("Sent {$sentCount} training reminder notification(s).");
 

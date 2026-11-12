@@ -10,13 +10,13 @@ class TrainingExpiryNotification extends Notification
 {
     use Queueable;
 
+    /**
+     * @param  array<int, array{training_name: string, due_date: string, reminder_label: string, stage: string}>  $trainings
+     */
     public function __construct(
         public int $crewId,
         public string $crewName,
-        public string $trainingName,
-        public string $dueDate,
-        public string $reminderLabel,
-        public string $stage,
+        public array $trainings,
     ) {}
 
     /** @return array<int, string> */
@@ -27,24 +27,25 @@ class TrainingExpiryNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
-            ->subject("Pengingat training: {$this->crewName} - {$this->trainingName}")
+        $message = (new MailMessage)
+            ->subject("Pengingat training crew: {$this->crewName}")
             ->greeting("Pengingat Training Crew: {$this->crewName}")
-            ->line("Training {$this->trainingName} {$this->reminderLabel}.")
-            ->line("Tanggal kedaluwarsa: {$this->dueDate}")
-            ->action('Lihat training', url("/training/crews/{$this->crewId}"));
+            ->line('Training berikut perlu diperhatikan:');
+
+        foreach ($this->trainings as $training) {
+            $message->line("- {$training['training_name']}: {$training['reminder_label']} (jatuh tempo {$training['due_date']})");
+        }
+
+        return $message->action('Lihat training', url("/training/crews/{$this->crewId}"));
     }
 
-    /** @return array<string, int|string> */
+    /** @return array<string, int|string|array<int, array{training_name: string, due_date: string, reminder_label: string, stage: string}>> */
     public function toArray(object $notifiable): array
     {
         return [
             'crew_id' => $this->crewId,
             'crew_name' => $this->crewName,
-            'training_name' => $this->trainingName,
-            'due_date' => $this->dueDate,
-            'reminder_label' => $this->reminderLabel,
-            'stage' => $this->stage,
+            'trainings' => $this->trainings,
             'url' => "/training/crews/{$this->crewId}",
         ];
     }
