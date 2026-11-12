@@ -47,13 +47,14 @@ class SendTrainingReminders extends Command
                     }
 
                     foreach ($this->recipients($record, $trainingPageId) as $recipient) {
-                        $alreadySent = $record->reminderLogs()
+                        $reminderLog = $record->reminderLogs()
                             ->whereDate('due_date', $dueDate->toDateString())
                             ->where('stage', $stage)
                             ->where('recipient_user_id', $recipient->id)
-                            ->exists();
+                            ->first();
 
-                        if ($alreadySent) {
+                        if ($reminderLog !== null
+                            && ($stage !== 'expired_daily' || $reminderLog->updated_at?->toDateString() === $today->toDateString())) {
                             continue;
                         }
 
@@ -66,11 +67,16 @@ class SendTrainingReminders extends Command
                             stage: $stage,
                         ));
 
-                        $record->reminderLogs()->create([
-                            'recipient_user_id' => $recipient->id,
-                            'due_date' => $dueDate->toDateString(),
-                            'stage' => $stage,
-                        ]);
+                        if ($reminderLog === null) {
+                            $record->reminderLogs()->create([
+                                'recipient_user_id' => $recipient->id,
+                                'due_date' => $dueDate->toDateString(),
+                                'stage' => $stage,
+                            ]);
+                        } else {
+                            $reminderLog->touch();
+                        }
+
                         $sentCount++;
                     }
                 }
