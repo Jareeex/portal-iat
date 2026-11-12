@@ -262,7 +262,7 @@ test('aircraft export includes every pilot crew and leaves missing records blank
         ->and($exportData['crewGroups'][0]['crew'])->toBe('Assigned Crew');
 });
 
-test('training expiry reminders go to crew masters and training editors only once per stage and day', function () {
+test('training expiry reminders are grouped by crew for masters and training editors', function () {
     $today = CarbonImmutable::parse('2026-11-10 08:00:00');
     $this->travelTo($today);
 
@@ -309,6 +309,14 @@ test('training expiry reminders go to crew masters and training editors only onc
         'fleet' => 'ATR',
         'position' => 'PIC',
     ]);
+    $editorCrew = Crew::create([
+        'user_id' => $editor->id,
+        'group' => 'fw_atr',
+        'name' => 'Editor Crew',
+        'category' => 'Pilot',
+        'fleet' => 'ATR',
+        'position' => 'PIC',
+    ]);
 
     foreach ([
         'Two month notice' => $today->addMonthsNoOverflow(2),
@@ -329,47 +337,69 @@ test('training expiry reminders go to crew masters and training editors only onc
         ]);
     }
 
+    $expiredType = TrainingType::create([
+        'group' => 'fw_atr',
+        'section' => 'Mandatory',
+        'name' => 'Editor crew expired notice',
+        'validity' => '12 Months',
+    ]);
+    CrewTraining::create([
+        'crew_id' => $editorCrew->id,
+        'training_type_id' => $expiredType->id,
+        'next_check' => $today->subDay()->toDateString(),
+    ]);
+
     $this->artisan('app:send-training-reminders')->assertSuccessful();
 
-    expect($crewUser->notifications()->count())->toBe(4)
-        ->and($master->notifications()->count())->toBe(4)
-        ->and($editor->notifications()->count())->toBe(4)
-        ->and($bod->notifications()->count())->toBe(4)
+    expect($crewUser->notifications()->count())->toBe(1)
+        ->and($master->notifications()->count())->toBe(2)
+        ->and($editor->notifications()->count())->toBe(2)
+        ->and($bod->notifications()->count())->toBe(2)
         ->and($viewer->notifications()->count())->toBe(0);
+    expect($editor->notifications()->pluck('data')->pluck('crew_name'))
+        ->toContain('Reminder Crew', 'Editor Crew');
     expect($crewUser->notifications()->first()->data)
-        ->toHaveKeys(['crew_id', 'crew_name', 'training_name', 'due_date', 'reminder_label', 'stage', 'url'])
-        ->and($crewUser->notifications()->first()->data['reminder_label'])
-        ->toBe('akan kedaluwarsa dalam 2 bulan');
+        ->toHaveKeys(['crew_id', 'crew_name', 'trainings', 'url'])
+        ->and($crewUser->notifications()->first()->data['trainings'])
+        ->toHaveCount(4)
+        ->and($crewUser->notifications()->first()->data['trainings'][0])
+        ->toBe([
+            'training_name' => 'Two month notice',
+            'due_date' => $today->addMonthsNoOverflow(2)->format('d/m/Y'),
+            'reminder_label' => 'akan kedaluwarsa dalam 2 bulan',
+            'stage' => 'two_months',
+        ]);
     expect($notification = new TrainingExpiryNotification(
         crewId: $crew->id,
         crewName: $crew->name,
-        trainingName: 'Two month notice',
-        dueDate: $today->addMonthsNoOverflow()->format('d/m/Y'),
-        reminderLabel: 'akan kedaluwarsa dalam 1 bulan',
-        stage: 'one_month',
+        trainings: $crewUser->notifications()->first()->data['trainings'],
     ))->toBeInstanceOf(TrainingExpiryNotification::class)
         ->and($notification->via($crewUser))->toBe(['database', 'mail'])
-        ->and($notification->toMail($crewUser)->subject)->toContain('Reminder Crew');
+        ->and($notification->toMail($crewUser)->subject)->toContain('Reminder Crew')
+        ->and($notification->toMail($crewUser)->introLines)->toHaveCount(5)
+        ->and($notification->toMail($crewUser)->introLines)->toContain(
+            '- Daily expired notice: sudah kedaluwarsa (jatuh tempo '.$today->subDay()->format('d/m/Y').')',
+        );
 
     $this->artisan('app:send-training-reminders')->assertSuccessful();
-    expect($crewUser->notifications()->count())->toBe(4)
-        ->and($master->notifications()->count())->toBe(4)
-        ->and($editor->notifications()->count())->toBe(4)
-        ->and($bod->notifications()->count())->toBe(4);
+    expect($crewUser->notifications()->count())->toBe(1)
+        ->and($master->notifications()->count())->toBe(2)
+        ->and($editor->notifications()->count())->toBe(2)
+        ->and($bod->notifications()->count())->toBe(2);
 
     $this->travelTo($today->addDay());
     $this->artisan('app:send-training-reminders')->assertSuccessful();
 
-    expect($crewUser->notifications()->count())->toBe(5)
-        ->and($master->notifications()->count())->toBe(5)
-        ->and($editor->notifications()->count())->toBe(5)
-        ->and($bod->notifications()->count())->toBe(5);
+    expect($crewUser->notifications()->count())->toBe(2)
+        ->and($master->notifications()->count())->toBe(4)
+        ->and($editor->notifications()->count())->toBe(4)
+        ->and($bod->notifications()->count())->toBe(4);
 
     $this->artisan('app:send-training-reminders')->assertSuccessful();
-    expect($crewUser->notifications()->count())->toBe(5)
-        ->and($master->notifications()->count())->toBe(5)
-        ->and($editor->notifications()->count())->toBe(5)
-        ->and($bod->notifications()->count())->toBe(5);
+    expect($crewUser->notifications()->count())->toBe(2)
+        ->and($master->notifications()->count())->toBe(4)
+        ->and($editor->notifications()->count())->toBe(4)
+        ->and($bod->notifications()->count())->toBe(4);
 
     $this->travelBack();
 });
@@ -380,10 +410,12 @@ test('users can only view and mark their own notifications as read', function ()
     $notification = new TrainingExpiryNotification(
         crewId: 1,
         crewName: 'Assigned Crew',
-        trainingName: 'Annual check',
-        dueDate: '10/11/2026',
-        reminderLabel: 'akan kedaluwarsa dalam 1 minggu',
-        stage: 'one_week',
+        trainings: [[
+            'training_name' => 'Annual check',
+            'due_date' => '10/11/2026',
+            'reminder_label' => 'akan kedaluwarsa dalam 1 minggu',
+            'stage' => 'one_week',
+        ]],
     );
     $owner->notify($notification);
     $other->notify($notification);

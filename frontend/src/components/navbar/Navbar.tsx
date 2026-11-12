@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { notificationService } from '../../services/notification.service';
 import type { NotificationInbox, UserNotification } from '../../services/notification.service';
@@ -149,11 +149,23 @@ export function Navbar({ onMenu }: { onMenu: () => void }) {
                                                             'Training'}
                                                     </strong>
                                                     <span>
-                                                        {notification.data.training_name ??
-                                                            'Pengingat training'}{' '}
-                                                        {notification.data.reminder_label}
+                                                        {notification.data.trainings
+                                                            ? `${notification.data.trainings.length} training perlu diperhatikan`
+                                                            : `${notification.data.training_name ?? 'Pengingat training'} ${notification.data.reminder_label ?? ''}`}
                                                     </span>
-                                                    {notification.data.due_date && (
+                                                    {notification.data.trainings?.map(
+                                                        (training) => (
+                                                            <small
+                                                                key={`${training.training_name}-${training.due_date}`}
+                                                            >
+                                                                {training.training_name}:{' '}
+                                                                {training.reminder_label} (
+                                                                {training.due_date})
+                                                            </small>
+                                                        ),
+                                                    )}
+                                                    {!notification.data.trainings &&
+                                                        notification.data.due_date && (
                                                         <small>
                                                             Kedaluwarsa:{' '}
                                                             {notification.data.due_date}
@@ -181,6 +193,9 @@ export function Navbar({ onMenu }: { onMenu: () => void }) {
                                 : ''}
                         </span>
                     </div>
+                    <Link to="/profile" className="btn btn-ghost">
+                        Profil
+                    </Link>
                     <button
                         type="button"
                         className="btn btn-ghost"

@@ -1858,6 +1858,27 @@ input[type='checkbox'] {
     padding: 20px;
     box-shadow: var(--shadow);
 }
+.profile-panel {
+    max-width: 720px;
+    margin-bottom: 20px;
+}
+.profile-panel h3 {
+    margin-top: 0;
+}
+.profile-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin: 0;
+}
+.profile-details dt {
+    color: var(--muted);
+    font-size: 12px;
+}
+.profile-details dd {
+    margin: 4px 0 0;
+    overflow-wrap: anywhere;
+}
 .leave-panel {
     margin-bottom: 24px;
 }

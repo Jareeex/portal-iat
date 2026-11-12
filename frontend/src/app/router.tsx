@@ -14,6 +14,7 @@ import LeaveRequestsPage from '../features/hr/LeaveRequestsPage';
 import ItTicketsPage from '../features/it-tickets/ItTicketsPage';
 import TicketCreatePage from '../features/it-tickets/TicketCreatePage';
 import TicketDetailPage from '../features/it-tickets/TicketDetailPage';
+import ProfilePage from '../features/profile/ProfilePage';
 
 export const router = createBrowserRouter([
     {
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
                         element: <Navigate to="/dashboard" replace />,
                     },
                     { path: '/dashboard', element: <DashboardPage /> },
+                    { path: '/profile', element: <ProfilePage /> },
                     { path: '/leave-request', element: <LeaveRequestsPage /> },
                     { path: '/it/tickets', element: <ItTicketsPage /> },
                     { path: '/it/tickets/new', element: <TicketCreatePage /> },
