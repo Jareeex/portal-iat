@@ -357,6 +357,20 @@ test('training expiry reminders go to crew masters and training editors only onc
         ->and($editor->notifications()->count())->toBe(4)
         ->and($bod->notifications()->count())->toBe(4);
 
+    $this->travelTo($today->addDay());
+    $this->artisan('app:send-training-reminders')->assertSuccessful();
+
+    expect($crewUser->notifications()->count())->toBe(5)
+        ->and($master->notifications()->count())->toBe(5)
+        ->and($editor->notifications()->count())->toBe(5)
+        ->and($bod->notifications()->count())->toBe(5);
+
+    $this->artisan('app:send-training-reminders')->assertSuccessful();
+    expect($crewUser->notifications()->count())->toBe(5)
+        ->and($master->notifications()->count())->toBe(5)
+        ->and($editor->notifications()->count())->toBe(5)
+        ->and($bod->notifications()->count())->toBe(5);
+
     $this->travelBack();
 });
 
