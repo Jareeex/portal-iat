@@ -263,7 +263,7 @@ test('aircraft export includes every pilot crew and leaves missing records blank
 });
 
 test('training expiry reminders are sent as a single digest to eligible users', function () {
-    $today = CarbonImmutable::parse('2026-11-17 08:00:00');
+    $today = CarbonImmutable::parse('2026-11-16 08:00:00');
     $this->travelTo($today);
 
     $trainingPage = Page::create([
@@ -371,7 +371,7 @@ test('training expiry reminders are sent as a single digest to eligible users', 
         ->toBe([
             'crew_name' => 'Reminder Crew',
             'training_name' => 'Fourteen day notice',
-            'due_date' => '01/12/2026',
+            'due_date' => '30/11/2026',
             'reminder_label' => 'akan kedaluwarsa dalam 14 hari',
             'stage' => 'fourteen_days',
         ]);
@@ -384,7 +384,7 @@ test('training expiry reminders are sent as a single digest to eligible users', 
         ->and($notification->toMail($crewUser)->subject)->toContain('Reminder Crew')
         ->and($notification->toMail($crewUser)->introLines)->toHaveCount(5)
         ->and($notification->toMail($crewUser)->introLines)->toContain(
-            '- Reminder Crew - Daily expired notice: sudah kedaluwarsa (jatuh tempo 01/11/2026)',
+            '- Reminder Crew - Daily expired notice: sudah kedaluwarsa (jatuh tempo 31/10/2026)',
         );
 
     $this->artisan('app:send-training-reminders')->assertSuccessful();
@@ -430,7 +430,7 @@ test('training reminders use configured offsets and simulator and English rules'
     foreach ([
         'Regular check' => '2026-11-03',
         'Simulator check' => '2026-11-03',
-        'English Proficiency' => '2026-11-17',
+        'English Proficiency' => '2026-11-16',
     ] as $trainingName => $nextCheck) {
         $type = TrainingType::create([
             'group' => 'fw_atr',
@@ -446,11 +446,11 @@ test('training reminders use configured offsets and simulator and English rules'
     }
 
     $expectedStagesByDate = [
-        '2026-10-02' => ['sixty_days'],
-        '2026-11-01' => ['thirty_days'],
-        '2026-11-17' => ['fourteen_days', 'fourteen_days', 'english_proficiency_due'],
-        '2026-11-24' => ['seven_days', 'seven_days', 'expired_daily'],
-        '2026-11-28' => ['three_days', 'expired_daily'],
+        '2026-10-01' => ['sixty_days'],
+        '2026-10-31' => ['thirty_days'],
+        '2026-11-16' => ['fourteen_days', 'fourteen_days', 'english_proficiency_due'],
+        '2026-11-23' => ['seven_days', 'seven_days', 'expired_daily'],
+        '2026-11-27' => ['three_days', 'expired_daily'],
     ];
 
     foreach ($expectedStagesByDate as $date => $expectedStages) {
@@ -464,8 +464,8 @@ test('training reminders use configured offsets and simulator and English rules'
             ->toBe(array_map(
                 fn (string $stage): string => $stage === 'english_proficiency_due'
                     || $stage === 'expired_daily'
-                    ? '17/11/2026'
-                    : '01/12/2026',
+                    ? '16/11/2026'
+                    : '30/11/2026',
                 $expectedStages,
             ));
     }
