@@ -473,6 +473,109 @@ test('training reminders use configured offsets and simulator and English rules'
     $this->travelBack();
 });
 
+test('masters can manage reminder recipients and send all training reminders manually', function () {
+    $today = CarbonImmutable::parse('2026-11-16 08:00:00');
+    $this->travelTo($today);
+
+    $trainingPage = Page::create([
+        'key' => 'training',
+        'name' => 'Training',
+        'route' => '/training',
+        'is_active' => true,
+    ]);
+    $master = User::factory()->create([
+        'email' => 'reminder-master@example.test',
+        'role' => User::ROLE_MASTER,
+        'is_active' => true,
+    ]);
+    $editor = User::factory()->create([
+        'email' => 'reminder-editor@example.test',
+        'is_active' => true,
+    ]);
+    $editor->pages()->attach($trainingPage->id, ['access_level' => 'edit']);
+    $crewUser = User::factory()->create([
+        'email' => 'reminder-crew@example.test',
+        'is_active' => true,
+    ]);
+    $unrelatedUser = User::factory()->create([
+        'email' => 'unrelated@example.test',
+        'is_active' => true,
+    ]);
+    $crew = Crew::create([
+        'user_id' => $crewUser->id,
+        'group' => 'fw_atr',
+        'name' => 'Reminder Crew',
+        'category' => 'Pilot',
+        'fleet' => 'ATR',
+        'position' => 'PIC',
+    ]);
+
+    foreach ([
+        'Due soon' => '2026-11-02',
+        'Still active' => '2026-12-10',
+    ] as $trainingName => $nextCheck) {
+        $type = TrainingType::create([
+            'group' => 'fw_atr',
+            'section' => 'Mandatory',
+            'name' => $trainingName,
+            'validity' => '12 Months',
+        ]);
+        CrewTraining::create([
+            'crew_id' => $crew->id,
+            'training_type_id' => $type->id,
+            'next_check' => $nextCheck,
+        ]);
+    }
+
+    Sanctum::actingAs($master);
+    $this->getJson('/api/master/training-reminders/recipients')
+        ->assertOk()
+        ->assertJsonCount(3)
+        ->assertJsonFragment([
+            'id' => $crewUser->id,
+            'training_reminder_enabled' => true,
+        ]);
+    $this->putJson("/api/master/training-reminders/recipients/{$crewUser->id}", [
+        'enabled' => false,
+    ])->assertOk()->assertJsonPath('training_reminder_enabled', false);
+    $this->putJson("/api/master/training-reminders/recipients/{$unrelatedUser->id}", [
+        'enabled' => false,
+    ])->assertNotFound();
+
+    $this->artisan('app:send-training-reminders')->assertSuccessful();
+    expect($master->notifications()->count())->toBe(1)
+        ->and($editor->notifications()->count())->toBe(1)
+        ->and($crewUser->notifications()->count())->toBe(0)
+        ->and($master->notifications()->first()->data['trainings'])
+        ->toHaveCount(1)
+        ->and($master->notifications()->first()->data['trainings'][0]['stage'])
+        ->toBe('fourteen_days');
+
+    $this->postJson('/api/master/training-reminders/send-all')
+        ->assertOk()
+        ->assertJsonPath('message', 'Terkirim 2 notifikasi reminder training.');
+    expect($master->notifications()->count())->toBe(2)
+        ->and($editor->notifications()->count())->toBe(2)
+        ->and($crewUser->notifications()->count())->toBe(0)
+        ->and($master->notifications()->orderByDesc('id')->first()->data['trainings'])
+        ->toHaveCount(2)
+        ->and(array_column($master->notifications()->orderByDesc('id')->first()->data['trainings'], 'stage'))
+        ->toBe(['manual', 'manual']);
+
+    $this->putJson("/api/master/training-reminders/recipients/{$crewUser->id}", [
+        'enabled' => true,
+    ])->assertOk()->assertJsonPath('training_reminder_enabled', true);
+    $this->postJson('/api/master/training-reminders/send-all')->assertOk();
+    expect($crewUser->notifications()->count())->toBe(1)
+        ->and($crewUser->notifications()->first()->data['trainings'])
+        ->toHaveCount(2);
+
+    Sanctum::actingAs($unrelatedUser);
+    $this->getJson('/api/master/training-reminders/recipients')->assertForbidden();
+
+    $this->travelBack();
+});
+
 test('users can only view and mark their own notifications as read', function () {
     $owner = User::factory()->create(['is_active' => true]);
     $other = User::factory()->create(['is_active' => true]);

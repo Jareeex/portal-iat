@@ -35,6 +35,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'training_reminder_enabled' => 'boolean',
         ];
     }
 

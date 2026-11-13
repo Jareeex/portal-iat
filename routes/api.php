@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Master\AccessController;
 use App\Http\Controllers\Master\DepartmentController;
 use App\Http\Controllers\Master\PageController;
+use App\Http\Controllers\Master\TrainingReminderController;
 use App\Http\Controllers\Master\UserController;
 use App\Http\Controllers\User\DashboardController;
 use App\Http\Controllers\User\NotificationController;
@@ -31,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('departments', DepartmentController::class);
         Route::apiResource('users', UserController::class);
         Route::apiResource('pages', PageController::class);
+        Route::get('training-reminders/recipients', [TrainingReminderController::class, 'index']);
+        Route::put('training-reminders/recipients/{user}', [TrainingReminderController::class, 'updateRecipient']);
+        Route::post('training-reminders/send-all', [TrainingReminderController::class, 'sendAll']);
 
         Route::get('users/{user}/access', [AccessController::class, 'show']);
         Route::put('users/{user}/access', [AccessController::class, 'update']);

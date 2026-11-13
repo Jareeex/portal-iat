@@ -8,6 +8,11 @@ const items: NavItem[] = [
     { to: '/master/departments', label: 'Departments', icon: 'building-2' },
     { to: '/master/pages', label: 'Pages', icon: 'panels' },
     { to: '/master/access', label: 'Access', icon: 'shield' },
+    {
+        to: '/master/training-reminders',
+        label: 'Training Reminders',
+        icon: 'calendar-days',
+    },
 ];
 
 export default function MasterLayout() {

@@ -4,16 +4,14 @@ namespace App\Console\Commands;
 
 use App\Models\CrewTraining;
 use App\Models\Page;
-use App\Models\User;
 use App\Notifications\TrainingExpiryNotification;
+use App\Services\TrainingReminderRecipientService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 
-#[Signature('app:send-training-reminders')]
+#[Signature('app:send-training-reminders {--all : Send a manual reminder for every training with a next check}')]
 #[Description('Send crew training expiry reminders')]
 class SendTrainingReminders extends Command
 {
@@ -25,11 +23,13 @@ class SendTrainingReminders extends Command
         'three_days' => 'akan kedaluwarsa dalam 3 hari',
         'english_proficiency_due' => 'jatuh tempo hari ini',
         'expired_daily' => 'sudah kedaluwarsa',
+        'manual' => 'dikirim manual oleh master',
     ];
 
-    public function handle(): int
+    public function handle(TrainingReminderRecipientService $recipientService): int
     {
         $today = CarbonImmutable::today();
+        $sendAll = (bool) $this->option('all');
         $trainingPageId = Page::query()->where('key', 'training')->value('id');
         $remindersByRecipient = [];
         $sentCount = 0;
@@ -37,7 +37,7 @@ class SendTrainingReminders extends Command
         CrewTraining::query()
             ->whereNotNull('next_check')
             ->with(['crew.user', 'type'])
-            ->chunkById(200, function ($records) use ($today, $trainingPageId, &$remindersByRecipient): void {
+            ->chunkById(200, function ($records) use ($today, $trainingPageId, $sendAll, $recipientService, &$remindersByRecipient): void {
                 foreach ($records as $record) {
                     if ($record->next_check === null || $record->crew === null || $record->type === null) {
                         continue;
@@ -45,18 +45,22 @@ class SendTrainingReminders extends Command
 
                     $nextCheck = CarbonImmutable::parse($record->next_check)->startOfDay();
                     $dueDate = $this->dueDate($nextCheck, $record->type->name);
-                    $stage = $this->reminderStage($today, $dueDate, $nextCheck, $record->type->name);
+                    $stage = $sendAll
+                        ? 'manual'
+                        : $this->reminderStage($today, $dueDate, $nextCheck, $record->type->name);
 
                     if ($stage === null) {
                         continue;
                     }
 
-                    foreach ($this->recipients($record, $trainingPageId) as $recipient) {
-                        $reminderLog = $record->reminderLogs()
-                            ->whereDate('due_date', $dueDate->toDateString())
-                            ->where('stage', $stage)
-                            ->where('recipient_user_id', $recipient->id)
-                            ->first();
+                    foreach ($recipientService->recipients($trainingPageId, $record, enabledOnly: true) as $recipient) {
+                        $reminderLog = $sendAll
+                            ? null
+                            : $record->reminderLogs()
+                                ->whereDate('due_date', $dueDate->toDateString())
+                                ->where('stage', $stage)
+                                ->where('recipient_user_id', $recipient->id)
+                                ->first();
 
                         if ($reminderLog !== null
                             && ($stage !== 'expired_daily' || $reminderLog->updated_at?->toDateString() === $today->toDateString())) {
@@ -99,6 +103,10 @@ class SendTrainingReminders extends Command
             ));
 
             foreach ($reminderItems as $reminder) {
+                if ($reminder['stage'] === 'manual') {
+                    continue;
+                }
+
                 if ($reminder['log'] === null) {
                     $reminder['record']->reminderLogs()->create([
                         'recipient_user_id' => $recipient->id,
@@ -113,7 +121,7 @@ class SendTrainingReminders extends Command
             $sentCount++;
         }
 
-        $this->info("Sent {$sentCount} training reminder notification(s).");
+        $this->info("Terkirim {$sentCount} notifikasi reminder training.");
 
         return self::SUCCESS;
     }
@@ -152,35 +160,5 @@ class SendTrainingReminders extends Command
         }
 
         return null;
-    }
-
-    /**
-     * @return Collection<int, User>
-     */
-    private function recipients(CrewTraining $record, ?int $trainingPageId): Collection
-    {
-        return User::query()
-            ->where('is_active', true)
-            ->where(function (Builder $query) use ($trainingPageId, $record): void {
-                $query->where('role', User::ROLE_MASTER);
-
-                if ($trainingPageId !== null) {
-                    $query->orWhereHas('pages', function (Builder $pageQuery) use ($trainingPageId): void {
-                        $pageQuery->whereKey($trainingPageId)
-                            ->where('user_page_access.access_level', 'edit');
-                    });
-                }
-
-                $query->orWhereHas('department', fn (Builder $departmentQuery) => $departmentQuery->where('has_full_access', true));
-
-                if ($record->crew?->user_id !== null) {
-                    $query->orWhereKey($record->crew->user_id);
-                }
-            })
-            ->whereNotNull('email')
-            ->where('email', '!=', '')
-            ->get()
-            ->filter(fn (User $user): bool => filter_var(trim($user->email), FILTER_VALIDATE_EMAIL) !== false)
-            ->values();
     }
 }
