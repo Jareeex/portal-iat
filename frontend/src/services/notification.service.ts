@@ -10,6 +10,7 @@ export interface UserNotification {
             due_date: string;
             reminder_label: string;
             stage: string;
+            crew_name?: string;
         }>;
         training_name?: string;
         due_date?: string;
