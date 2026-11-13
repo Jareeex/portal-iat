@@ -11,10 +11,10 @@ class TrainingExpiryNotification extends Notification
     use Queueable;
 
     /**
-     * @param  array<int, array{training_name: string, due_date: string, reminder_label: string, stage: string}>  $trainings
+     * @param  array<int, array{training_name: string, due_date: string, reminder_label: string, stage: string, crew_name?: string}>  $trainings
      */
     public function __construct(
-        public int $crewId,
+        public ?int $crewId,
         public string $crewName,
         public array $trainings,
     ) {}
@@ -33,13 +33,18 @@ class TrainingExpiryNotification extends Notification
             ->line('Training berikut perlu diperhatikan:');
 
         foreach ($this->trainings as $training) {
-            $message->line("- {$training['training_name']}: {$training['reminder_label']} (jatuh tempo {$training['due_date']})");
+            $crewName = $training['crew_name'] ?? $this->crewName;
+            $message->line("- {$crewName} - {$training['training_name']}: {$training['reminder_label']} (jatuh tempo {$training['due_date']})");
         }
 
-        return $message->action('Lihat training', url("/training/crews/{$this->crewId}"));
+        $url = $this->crewId === null
+            ? url('/training')
+            : url("/training/crews/{$this->crewId}");
+
+        return $message->action('Lihat training', $url);
     }
 
-    /** @return array<string, int|string|array<int, array{training_name: string, due_date: string, reminder_label: string, stage: string}>> */
+    /** @return array<string, int|string|null|array<int, array{training_name: string, due_date: string, reminder_label: string, stage: string, crew_name?: string}>> */
     public function toArray(object $notifiable): array
     {
         return [

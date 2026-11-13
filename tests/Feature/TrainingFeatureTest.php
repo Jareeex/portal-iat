@@ -262,8 +262,8 @@ test('aircraft export includes every pilot crew and leaves missing records blank
         ->and($exportData['crewGroups'][0]['crew'])->toBe('Assigned Crew');
 });
 
-test('training expiry reminders are grouped by crew for masters and training editors', function () {
-    $today = CarbonImmutable::parse('2026-11-10 08:00:00');
+test('training expiry reminders are sent as a single digest to eligible users', function () {
+    $today = CarbonImmutable::parse('2026-11-17 08:00:00');
     $this->travelTo($today);
 
     $trainingPage = Page::create([
@@ -319,11 +319,11 @@ test('training expiry reminders are grouped by crew for masters and training edi
     ]);
 
     foreach ([
-        'Two month notice' => $today->addMonthsNoOverflow(2),
-        'One month notice' => $today->addMonthNoOverflow(),
-        'One week notice' => $today->addDays(7),
-        'Daily expired notice' => $today->subDay(),
-    ] as $trainingName => $dueDate) {
+        'Fourteen day notice' => $today->subDays(14),
+        'Pilot Proficiency Check – Simulator PIC' => $today->subDays(14),
+        'English Proficiency' => $today,
+        'Daily expired notice' => $today->subDays(45),
+    ] as $trainingName => $nextCheck) {
         $type = TrainingType::create([
             'group' => 'fw_atr',
             'section' => 'Mandatory',
@@ -333,7 +333,7 @@ test('training expiry reminders are grouped by crew for masters and training edi
         CrewTraining::create([
             'crew_id' => $crew->id,
             'training_type_id' => $type->id,
-            'next_check' => $dueDate->toDateString(),
+            'next_check' => $nextCheck->toDateString(),
         ]);
     }
 
@@ -346,28 +346,34 @@ test('training expiry reminders are grouped by crew for masters and training edi
     CrewTraining::create([
         'crew_id' => $editorCrew->id,
         'training_type_id' => $expiredType->id,
-        'next_check' => $today->subDay()->toDateString(),
+        'next_check' => $today->subDays(45)->toDateString(),
     ]);
 
     $this->artisan('app:send-training-reminders')->assertSuccessful();
 
     expect($crewUser->notifications()->count())->toBe(1)
-        ->and($master->notifications()->count())->toBe(2)
-        ->and($editor->notifications()->count())->toBe(2)
-        ->and($bod->notifications()->count())->toBe(2)
+        ->and($master->notifications()->count())->toBe(1)
+        ->and($editor->notifications()->count())->toBe(1)
+        ->and($bod->notifications()->count())->toBe(1)
         ->and($viewer->notifications()->count())->toBe(0);
-    expect($editor->notifications()->pluck('data')->pluck('crew_name'))
-        ->toContain('Reminder Crew', 'Editor Crew');
+    expect($editor->notifications()->first()->data['crew_name'])->toBe('Semua crew')
+        ->and($editor->notifications()->first()->data['trainings'])->toHaveCount(5)
+        ->and(array_filter(
+            $master->notifications()->first()->data['trainings'],
+            fn (array $training): bool => $training['crew_name'] === 'Editor Crew'
+                && $training['training_name'] === 'Editor crew expired notice',
+        ))->toHaveCount(1);
     expect($crewUser->notifications()->first()->data)
         ->toHaveKeys(['crew_id', 'crew_name', 'trainings', 'url'])
         ->and($crewUser->notifications()->first()->data['trainings'])
         ->toHaveCount(4)
         ->and($crewUser->notifications()->first()->data['trainings'][0])
         ->toBe([
-            'training_name' => 'Two month notice',
-            'due_date' => $today->addMonthsNoOverflow(2)->format('d/m/Y'),
-            'reminder_label' => 'akan kedaluwarsa dalam 2 bulan',
-            'stage' => 'two_months',
+            'crew_name' => 'Reminder Crew',
+            'training_name' => 'Fourteen day notice',
+            'due_date' => '01/12/2026',
+            'reminder_label' => 'akan kedaluwarsa dalam 14 hari',
+            'stage' => 'fourteen_days',
         ]);
     expect($notification = new TrainingExpiryNotification(
         crewId: $crew->id,
@@ -378,28 +384,91 @@ test('training expiry reminders are grouped by crew for masters and training edi
         ->and($notification->toMail($crewUser)->subject)->toContain('Reminder Crew')
         ->and($notification->toMail($crewUser)->introLines)->toHaveCount(5)
         ->and($notification->toMail($crewUser)->introLines)->toContain(
-            '- Daily expired notice: sudah kedaluwarsa (jatuh tempo '.$today->subDay()->format('d/m/Y').')',
+            '- Reminder Crew - Daily expired notice: sudah kedaluwarsa (jatuh tempo 01/11/2026)',
         );
 
     $this->artisan('app:send-training-reminders')->assertSuccessful();
     expect($crewUser->notifications()->count())->toBe(1)
-        ->and($master->notifications()->count())->toBe(2)
-        ->and($editor->notifications()->count())->toBe(2)
-        ->and($bod->notifications()->count())->toBe(2);
+        ->and($master->notifications()->count())->toBe(1)
+        ->and($editor->notifications()->count())->toBe(1)
+        ->and($bod->notifications()->count())->toBe(1);
 
     $this->travelTo($today->addDay());
     $this->artisan('app:send-training-reminders')->assertSuccessful();
 
     expect($crewUser->notifications()->count())->toBe(2)
-        ->and($master->notifications()->count())->toBe(4)
-        ->and($editor->notifications()->count())->toBe(4)
-        ->and($bod->notifications()->count())->toBe(4);
+        ->and($master->notifications()->count())->toBe(2)
+        ->and($editor->notifications()->count())->toBe(2)
+        ->and($bod->notifications()->count())->toBe(2)
+        ->and($crewUser->notifications()->latest()->first()->data['trainings'])
+        ->toHaveCount(2)
+        ->and(array_column($crewUser->notifications()->latest()->first()->data['trainings'], 'stage'))
+        ->toBe(['expired_daily', 'expired_daily']);
 
     $this->artisan('app:send-training-reminders')->assertSuccessful();
     expect($crewUser->notifications()->count())->toBe(2)
-        ->and($master->notifications()->count())->toBe(4)
-        ->and($editor->notifications()->count())->toBe(4)
-        ->and($bod->notifications()->count())->toBe(4);
+        ->and($master->notifications()->count())->toBe(2)
+        ->and($editor->notifications()->count())->toBe(2)
+        ->and($bod->notifications()->count())->toBe(2);
+
+    $this->travelBack();
+});
+
+test('training reminders use configured offsets and simulator and English rules', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-02 08:00:00'));
+
+    $crewUser = User::factory()->create(['email' => 'offset-crew@example.test', 'is_active' => true]);
+    $crew = Crew::create([
+        'user_id' => $crewUser->id,
+        'group' => 'fw_atr',
+        'name' => 'Offset Crew',
+        'category' => 'Pilot',
+        'fleet' => 'ATR',
+        'position' => 'PIC',
+    ]);
+
+    foreach ([
+        'Regular check' => '2026-11-03',
+        'Simulator check' => '2026-11-03',
+        'English Proficiency' => '2026-11-17',
+    ] as $trainingName => $nextCheck) {
+        $type = TrainingType::create([
+            'group' => 'fw_atr',
+            'section' => 'Mandatory',
+            'name' => $trainingName,
+            'validity' => '12 Months',
+        ]);
+        CrewTraining::create([
+            'crew_id' => $crew->id,
+            'training_type_id' => $type->id,
+            'next_check' => $nextCheck,
+        ]);
+    }
+
+    $expectedStagesByDate = [
+        '2026-10-02' => ['sixty_days'],
+        '2026-11-01' => ['thirty_days'],
+        '2026-11-17' => ['fourteen_days', 'fourteen_days', 'english_proficiency_due'],
+        '2026-11-24' => ['seven_days', 'seven_days', 'expired_daily'],
+        '2026-11-28' => ['three_days', 'expired_daily'],
+    ];
+
+    foreach ($expectedStagesByDate as $date => $expectedStages) {
+        $this->travelTo(CarbonImmutable::parse("{$date} 08:00:00"));
+        $this->artisan('app:send-training-reminders')->assertSuccessful();
+
+        $notification = $crewUser->notifications()->latest()->first();
+        expect($notification)->not->toBeNull()
+            ->and(array_column($notification->data['trainings'], 'stage'))->toBe($expectedStages)
+            ->and(array_column($notification->data['trainings'], 'due_date'))
+            ->toBe(array_map(
+                fn (string $stage): string => $stage === 'english_proficiency_due'
+                    || $stage === 'expired_daily'
+                    ? '17/11/2026'
+                    : '01/12/2026',
+                $expectedStages,
+            ));
+    }
 
     $this->travelBack();
 });
