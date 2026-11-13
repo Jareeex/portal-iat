@@ -5,6 +5,65 @@ import { notificationService } from '../../services/notification.service';
 import type { NotificationInbox, UserNotification } from '../../services/notification.service';
 import { errorMessage } from '../../utils/error';
 
+const MONTH_LABELS = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC',
+];
+
+type TrainingReminderItem = NonNullable<
+    UserNotification['data']['trainings']
+>[number];
+
+function groupTrainingItems(
+    trainings: TrainingReminderItem[],
+    fallbackCrewName: string,
+): Array<{
+    key: string;
+    trainingName: string;
+    dueDate: string;
+    crewNames: string[];
+}> {
+    const groups = new Map<
+        string,
+        { trainingName: string; dueDate: string; crewNames: string[] }
+    >();
+
+    trainings.forEach((training) => {
+        const key = `${training.training_name}|${training.due_date}`;
+        const group = groups.get(key) ?? {
+            trainingName: training.training_name,
+            dueDate: training.due_date,
+            crewNames: [],
+        };
+        const crewName = training.crew_name ?? fallbackCrewName;
+
+        if (!group.crewNames.includes(crewName)) {
+            group.crewNames.push(crewName);
+        }
+
+        groups.set(key, group);
+    });
+
+    return Array.from(groups, ([key, group]) => ({ key, ...group }));
+}
+
+function formatReminderDate(dueDate: string): string {
+    const [day, month] = dueDate.split('/');
+    const monthLabel = MONTH_LABELS[Number(month) - 1];
+
+    return day && monthLabel ? `${day} ${monthLabel}` : dueDate;
+}
+
 export function Navbar({ onMenu }: { onMenu: () => void }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -129,8 +188,20 @@ export function Navbar({ onMenu }: { onMenu: () => void }) {
                                     </p>
                                 ) : (
                                     <ul>
-                                        {inbox.notifications.map((notification) => (
-                                            <li key={notification.id}>
+                                        {inbox.notifications.map((notification) => {
+                                            const trainingGroups =
+                                                notification.data.trainings
+                                                    ? groupTrainingItems(
+                                                          notification.data
+                                                              .trainings,
+                                                          notification.data
+                                                              .crew_name ??
+                                                              'Crew',
+                                                      )
+                                                    : [];
+
+                                            return (
+                                                <li key={notification.id}>
                                                 <button
                                                     type="button"
                                                     className={
@@ -145,24 +216,42 @@ export function Navbar({ onMenu }: { onMenu: () => void }) {
                                                     }
                                                 >
                                                     <strong>
-                                                        {notification.data.crew_name ??
-                                                            'Training'}
+                                                        {notification.data
+                                                            .trainings
+                                                            ? 'Reminder Training'
+                                                            : notification.data
+                                                                  .crew_name ??
+                                                              'Training'}
                                                     </strong>
                                                     <span>
                                                         {notification.data.trainings
                                                             ? `${notification.data.trainings.length} training perlu diperhatikan`
                                                             : `${notification.data.training_name ?? 'Pengingat training'} ${notification.data.reminder_label ?? ''}`}
                                                     </span>
-                                                    {notification.data.trainings?.map(
-                                                        (training) => (
+                                                    {trainingGroups.flatMap(
+                                                        (group) => [
                                                             <small
-                                                                key={`${training.training_name}-${training.due_date}`}
+                                                                key={`${group.key}-heading`}
                                                             >
-                                                                {training.training_name}:{' '}
-                                                                {training.reminder_label} (
-                                                                {training.due_date})
-                                                            </small>
-                                                        ),
+                                                                <strong>
+                                                                    {group.trainingName.toUpperCase()}{' '}
+                                                                    {formatReminderDate(
+                                                                        group.dueDate,
+                                                                    )}
+                                                                    :
+                                                                </strong>
+                                                            </small>,
+                                                            ...group.crewNames.map(
+                                                                (crewName) => (
+                                                                    <small
+                                                                        key={`${group.key}-${crewName}`}
+                                                                    >
+                                                                        -{' '}
+                                                                        {crewName}
+                                                                    </small>
+                                                                ),
+                                                            ),
+                                                        ],
                                                     )}
                                                     {!notification.data.trainings &&
                                                         notification.data.due_date && (
@@ -172,8 +261,9 @@ export function Navbar({ onMenu }: { onMenu: () => void }) {
                                                         </small>
                                                     )}
                                                 </button>
-                                            </li>
-                                        ))}
+                                                </li>
+                                            );
+                                        })}
                                     </ul>
                                 )}
                             </section>

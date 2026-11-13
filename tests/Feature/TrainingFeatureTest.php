@@ -382,9 +382,10 @@ test('training expiry reminders are sent as a single digest to eligible users', 
     ))->toBeInstanceOf(TrainingExpiryNotification::class)
         ->and($notification->via($crewUser))->toBe(['database', 'mail'])
         ->and($notification->toMail($crewUser)->subject)->toContain('Reminder Crew')
-        ->and($notification->toMail($crewUser)->introLines)->toHaveCount(5)
+        ->and($notification->toMail($crewUser)->introLines)->toHaveCount(9)
         ->and($notification->toMail($crewUser)->introLines)->toContain(
-            '- Reminder Crew - Daily expired notice: sudah kedaluwarsa (jatuh tempo 31/10/2026)',
+            'DAILY EXPIRED NOTICE 31 OCT:',
+            '- Reminder Crew',
         );
 
     $this->artisan('app:send-training-reminders')->assertSuccessful();
@@ -412,6 +413,41 @@ test('training expiry reminders are sent as a single digest to eligible users', 
         ->and($bod->notifications()->count())->toBe(2);
 
     $this->travelBack();
+});
+
+test('training reminders group crew names under training and due date', function () {
+    $notification = new TrainingExpiryNotification(
+        crewId: null,
+        crewName: 'Semua crew',
+        trainings: [
+            [
+                'crew_name' => 'Crew Alpha',
+                'training_name' => 'DRM',
+                'due_date' => '30/10/2026',
+                'reminder_label' => 'akan kedaluwarsa dalam 14 hari',
+                'stage' => 'fourteen_days',
+            ],
+            [
+                'crew_name' => 'Crew Beta',
+                'training_name' => 'DRM',
+                'due_date' => '30/10/2026',
+                'reminder_label' => 'akan kedaluwarsa dalam 14 hari',
+                'stage' => 'fourteen_days',
+            ],
+            [
+                'crew_name' => 'Crew Alpha',
+                'training_name' => 'DG',
+                'due_date' => '30/10/2026',
+                'reminder_label' => 'akan kedaluwarsa dalam 14 hari',
+                'stage' => 'fourteen_days',
+            ],
+        ],
+    );
+
+    expect($notification->toMail(User::factory()->make())->introLines)
+        ->toHaveCount(6)
+        ->toContain('DRM 30 OCT:', '- Crew Alpha', '- Crew Beta', 'DG 30 OCT:')
+        ->and($notification->toArray(User::factory()->make())['url'])->toBe('/training');
 });
 
 test('training reminders use configured offsets and simulator and English rules', function () {
@@ -554,12 +590,15 @@ test('masters can manage reminder recipients and send all training reminders man
     $this->postJson('/api/master/training-reminders/send-all')
         ->assertOk()
         ->assertJsonPath('message', 'Terkirim 2 notifikasi reminder training.');
+    $masterManualNotification = $master->notifications()
+        ->get()
+        ->firstWhere('data.trainings.0.stage', 'manual');
     expect($master->notifications()->count())->toBe(2)
         ->and($editor->notifications()->count())->toBe(2)
         ->and($crewUser->notifications()->count())->toBe(0)
-        ->and($master->notifications()->orderByDesc('id')->first()->data['trainings'])
+        ->and($masterManualNotification->data['trainings'])
         ->toHaveCount(2)
-        ->and(array_column($master->notifications()->orderByDesc('id')->first()->data['trainings'], 'stage'))
+        ->and(array_column($masterManualNotification->data['trainings'], 'stage'))
         ->toBe(['manual', 'manual']);
 
     $this->putJson("/api/master/training-reminders/recipients/{$crewUser->id}", [
@@ -567,7 +606,7 @@ test('masters can manage reminder recipients and send all training reminders man
     ])->assertOk()->assertJsonPath('training_reminder_enabled', true);
     $this->postJson('/api/master/training-reminders/send-all')->assertOk();
     expect($crewUser->notifications()->count())->toBe(1)
-        ->and($crewUser->notifications()->first()->data['trainings'])
+        ->and($crewUser->notifications()->orderByDesc('id')->first()->data['trainings'])
         ->toHaveCount(2);
 
     Sanctum::actingAs($unrelatedUser);

@@ -32,9 +32,23 @@ class TrainingExpiryNotification extends Notification
             ->greeting("Pengingat Training Crew: {$this->crewName}")
             ->line('Training berikut perlu diperhatikan:');
 
+        /** @var array<string, array{training_name: string, due_date: string, crew_names: array<int, string>}> $trainingGroups */
+        $trainingGroups = [];
         foreach ($this->trainings as $training) {
-            $crewName = $training['crew_name'] ?? $this->crewName;
-            $message->line("- {$crewName} - {$training['training_name']}: {$training['reminder_label']} (jatuh tempo {$training['due_date']})");
+            $groupKey = $training['training_name'].'|'.$training['due_date'];
+            $trainingGroups[$groupKey]['training_name'] = $training['training_name'];
+            $trainingGroups[$groupKey]['due_date'] = $training['due_date'];
+            $trainingGroups[$groupKey]['crew_names'][] = $training['crew_name'] ?? $this->crewName;
+        }
+
+        foreach ($trainingGroups as $trainingGroup) {
+            $message->line(
+                strtoupper($trainingGroup['training_name']).' '.$this->formatDueDate($trainingGroup['due_date']).':',
+            );
+
+            foreach (array_unique($trainingGroup['crew_names']) as $crewName) {
+                $message->line("- {$crewName}");
+            }
         }
 
         $url = $this->crewId === null
@@ -51,7 +65,20 @@ class TrainingExpiryNotification extends Notification
             'crew_id' => $this->crewId,
             'crew_name' => $this->crewName,
             'trainings' => $this->trainings,
-            'url' => "/training/crews/{$this->crewId}",
+            'url' => $this->crewId === null
+                ? '/training'
+                : "/training/crews/{$this->crewId}",
         ];
+    }
+
+    private function formatDueDate(string $dueDate): string
+    {
+        $date = \DateTimeImmutable::createFromFormat('!d/m/Y', $dueDate);
+
+        if ($date === false) {
+            throw new \InvalidArgumentException("Invalid training reminder date [{$dueDate}].");
+        }
+
+        return strtoupper($date->format('d M'));
     }
 }
