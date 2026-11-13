@@ -58,10 +58,12 @@ function groupTrainingItems(
 }
 
 function formatReminderDate(dueDate: string): string {
-    const [day, month] = dueDate.split('/');
+    const [day, month, year] = dueDate.split('/');
     const monthLabel = MONTH_LABELS[Number(month) - 1];
 
-    return day && monthLabel ? `${day} ${monthLabel}` : dueDate;
+    return day && monthLabel && year
+        ? `${day} ${monthLabel} ${year}`
+        : dueDate;
 }
 
 export function Navbar({ onMenu }: { onMenu: () => void }) {
