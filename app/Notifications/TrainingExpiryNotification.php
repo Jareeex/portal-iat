@@ -17,7 +17,15 @@ class TrainingExpiryNotification extends Notification
         public ?int $crewId,
         public string $crewName,
         public array $trainings,
-    ) {}
+    ) {
+        usort($this->trainings, function (array $left, array $right): int {
+            $dateOrder = $this->parseDueDate($left['due_date']) <=> $this->parseDueDate($right['due_date']);
+
+            return $dateOrder !== 0
+                ? $dateOrder
+                : strcasecmp($left['training_name'], $right['training_name']);
+        });
+    }
 
     /** @return array<int, string> */
     public function via(object $notifiable): array
@@ -73,12 +81,17 @@ class TrainingExpiryNotification extends Notification
 
     private function formatDueDate(string $dueDate): string
     {
+        return strtoupper($this->parseDueDate($dueDate)->format('d M Y'));
+    }
+
+    private function parseDueDate(string $dueDate): \DateTimeImmutable
+    {
         $date = \DateTimeImmutable::createFromFormat('!d/m/Y', $dueDate);
 
         if ($date === false) {
             throw new \InvalidArgumentException("Invalid training reminder date [{$dueDate}].");
         }
 
-        return strtoupper($date->format('d M Y'));
+        return $date;
     }
 }

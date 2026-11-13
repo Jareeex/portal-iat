@@ -370,10 +370,10 @@ test('training expiry reminders are sent as a single digest to eligible users', 
         ->and($crewUser->notifications()->first()->data['trainings'][0])
         ->toBe([
             'crew_name' => 'Reminder Crew',
-            'training_name' => 'Fourteen day notice',
-            'due_date' => '30/11/2026',
-            'reminder_label' => 'akan kedaluwarsa dalam 14 hari',
-            'stage' => 'fourteen_days',
+            'training_name' => 'Daily expired notice',
+            'due_date' => '31/10/2026',
+            'reminder_label' => 'sudah kedaluwarsa',
+            'stage' => 'expired_daily',
         ]);
     expect($notification = new TrainingExpiryNotification(
         crewId: $crew->id,
@@ -441,12 +441,31 @@ test('training reminders group crew names under training and due date', function
                 'reminder_label' => 'akan kedaluwarsa dalam 14 hari',
                 'stage' => 'fourteen_days',
             ],
+            [
+                'crew_name' => 'Crew Gamma',
+                'training_name' => 'Flight Medical',
+                'due_date' => '29/10/2026',
+                'reminder_label' => 'akan kedaluwarsa dalam 14 hari',
+                'stage' => 'fourteen_days',
+            ],
         ],
     );
 
-    expect($notification->toMail(User::factory()->make())->introLines)
-        ->toHaveCount(6)
-        ->toContain('DRM 30 OCT 2026:', '- Crew Alpha', '- Crew Beta', 'DG 30 OCT 2026:')
+    $mailLines = $notification->toMail(User::factory()->make())->introLines;
+    expect($mailLines)
+        ->toHaveCount(8)
+        ->toContain(
+            'FLIGHT MEDICAL 29 OCT 2026:',
+            'DG 30 OCT 2026:',
+            'DRM 30 OCT 2026:',
+            '- Crew Alpha',
+            '- Crew Beta',
+            '- Crew Gamma',
+        )
+        ->and(array_search('FLIGHT MEDICAL 29 OCT 2026:', $mailLines))
+        ->toBeLessThan(array_search('DG 30 OCT 2026:', $mailLines))
+        ->and(array_column($notification->trainings, 'due_date'))
+        ->toBe(['29/10/2026', '30/10/2026', '30/10/2026', '30/10/2026'])
         ->and($notification->toArray(User::factory()->make())['url'])->toBe('/training');
 });
 
@@ -484,9 +503,9 @@ test('training reminders use configured offsets and simulator and English rules'
     $expectedStagesByDate = [
         '2026-10-01' => ['sixty_days'],
         '2026-10-31' => ['thirty_days'],
-        '2026-11-16' => ['fourteen_days', 'fourteen_days', 'english_proficiency_due'],
-        '2026-11-23' => ['seven_days', 'seven_days', 'expired_daily'],
-        '2026-11-27' => ['three_days', 'expired_daily'],
+        '2026-11-16' => ['english_proficiency_due', 'fourteen_days', 'fourteen_days'],
+        '2026-11-23' => ['expired_daily', 'seven_days', 'seven_days'],
+        '2026-11-27' => ['expired_daily', 'three_days'],
     ];
 
     foreach ($expectedStagesByDate as $date => $expectedStages) {
