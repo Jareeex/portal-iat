@@ -38,21 +38,31 @@ function groupTrainingItems(
         { trainingName: string; dueDate: string; crewNames: string[] }
     >();
 
-    trainings.forEach((training) => {
-        const key = `${training.training_name}|${training.due_date}`;
-        const group = groups.get(key) ?? {
-            trainingName: training.training_name,
-            dueDate: training.due_date,
-            crewNames: [],
-        };
-        const crewName = training.crew_name ?? fallbackCrewName;
+    [...trainings]
+        .sort((left, right) => {
+            const leftDate = left.due_date.split('/').reverse().join('-');
+            const rightDate = right.due_date.split('/').reverse().join('-');
 
-        if (!group.crewNames.includes(crewName)) {
-            group.crewNames.push(crewName);
-        }
+            return (
+                leftDate.localeCompare(rightDate) ||
+                left.training_name.localeCompare(right.training_name)
+            );
+        })
+        .forEach((training) => {
+            const key = `${training.training_name}|${training.due_date}`;
+            const group = groups.get(key) ?? {
+                trainingName: training.training_name,
+                dueDate: training.due_date,
+                crewNames: [],
+            };
+            const crewName = training.crew_name ?? fallbackCrewName;
 
-        groups.set(key, group);
-    });
+            if (!group.crewNames.includes(crewName)) {
+                group.crewNames.push(crewName);
+            }
+
+            groups.set(key, group);
+        });
 
     return Array.from(groups, ([key, group]) => ({ key, ...group }));
 }
