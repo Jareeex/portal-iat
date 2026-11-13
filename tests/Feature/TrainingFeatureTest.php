@@ -384,7 +384,7 @@ test('training expiry reminders are sent as a single digest to eligible users', 
         ->and($notification->toMail($crewUser)->subject)->toContain('Reminder Crew')
         ->and($notification->toMail($crewUser)->introLines)->toHaveCount(9)
         ->and($notification->toMail($crewUser)->introLines)->toContain(
-            'DAILY EXPIRED NOTICE 31 OCT:',
+            'DAILY EXPIRED NOTICE 31 OCT 2026:',
             '- Reminder Crew',
         );
 
@@ -446,7 +446,7 @@ test('training reminders group crew names under training and due date', function
 
     expect($notification->toMail(User::factory()->make())->introLines)
         ->toHaveCount(6)
-        ->toContain('DRM 30 OCT:', '- Crew Alpha', '- Crew Beta', 'DG 30 OCT:')
+        ->toContain('DRM 30 OCT 2026:', '- Crew Alpha', '- Crew Beta', 'DG 30 OCT 2026:')
         ->and($notification->toArray(User::factory()->make())['url'])->toBe('/training');
 });
 

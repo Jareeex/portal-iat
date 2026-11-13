@@ -79,6 +79,6 @@ class TrainingExpiryNotification extends Notification
             throw new \InvalidArgumentException("Invalid training reminder date [{$dueDate}].");
         }
 
-        return strtoupper($date->format('d M'));
+        return strtoupper($date->format('d M Y'));
     }
 }
