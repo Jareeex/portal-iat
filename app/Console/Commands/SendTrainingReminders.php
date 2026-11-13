@@ -124,7 +124,7 @@ class SendTrainingReminders extends Command
             return $nextCheck;
         }
 
-        return $nextCheck->startOfMonth()->addMonthNoOverflow();
+        return $nextCheck->endOfMonth()->startOfDay();
     }
 
     private function reminderStage(
