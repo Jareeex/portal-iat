@@ -15,6 +15,7 @@ import ItTicketsPage from '../features/it-tickets/ItTicketsPage';
 import TicketCreatePage from '../features/it-tickets/TicketCreatePage';
 import TicketDetailPage from '../features/it-tickets/TicketDetailPage';
 import ProfilePage from '../features/profile/ProfilePage';
+import TrainingRemindersPage from '../features/training/TrainingRemindersPage';
 
 export const router = createBrowserRouter([
     {
@@ -63,6 +64,10 @@ export const router = createBrowserRouter([
                             },
                             { path: 'pages', element: <PagesPage /> },
                             { path: 'access', element: <AccessPage /> },
+                            {
+                                path: 'training-reminders',
+                                element: <TrainingRemindersPage />,
+                            },
                         ],
                     },
                 ],
