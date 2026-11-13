@@ -18,9 +18,12 @@ use Illuminate\Database\Eloquent\Collection;
 class SendTrainingReminders extends Command
 {
     private const array REMINDER_LABELS = [
-        'two_months' => 'akan kedaluwarsa dalam 2 bulan',
-        'one_month' => 'akan kedaluwarsa dalam 1 bulan',
-        'one_week' => 'akan kedaluwarsa dalam 1 minggu',
+        'sixty_days' => 'akan kedaluwarsa dalam 60 hari',
+        'thirty_days' => 'akan kedaluwarsa dalam 30 hari',
+        'fourteen_days' => 'akan kedaluwarsa dalam 14 hari',
+        'seven_days' => 'akan kedaluwarsa dalam 7 hari',
+        'three_days' => 'akan kedaluwarsa dalam 3 hari',
+        'english_proficiency_due' => 'jatuh tempo hari ini',
         'expired_daily' => 'sudah kedaluwarsa',
     ];
 
@@ -28,20 +31,21 @@ class SendTrainingReminders extends Command
     {
         $today = CarbonImmutable::today();
         $trainingPageId = Page::query()->where('key', 'training')->value('id');
-        $remindersByCrew = [];
+        $remindersByRecipient = [];
         $sentCount = 0;
 
         CrewTraining::query()
             ->whereNotNull('next_check')
             ->with(['crew.user', 'type'])
-            ->chunkById(200, function ($records) use ($today, $trainingPageId, &$remindersByCrew): void {
+            ->chunkById(200, function ($records) use ($today, $trainingPageId, &$remindersByRecipient): void {
                 foreach ($records as $record) {
                     if ($record->next_check === null || $record->crew === null || $record->type === null) {
                         continue;
                     }
 
-                    $dueDate = CarbonImmutable::parse($record->next_check)->startOfDay();
-                    $stage = $this->reminderStage($today, $dueDate);
+                    $nextCheck = CarbonImmutable::parse($record->next_check)->startOfDay();
+                    $dueDate = $this->dueDate($nextCheck, $record->type->name);
+                    $stage = $this->reminderStage($today, $dueDate, $nextCheck, $record->type->name);
 
                     if ($stage === null) {
                         continue;
@@ -59,9 +63,8 @@ class SendTrainingReminders extends Command
                             continue;
                         }
 
-                        $remindersByCrew[$record->crew_id]['crew'] = $record->crew;
-                        $remindersByCrew[$record->crew_id]['recipients'][$recipient->id]['recipient'] = $recipient;
-                        $remindersByCrew[$record->crew_id]['recipients'][$recipient->id]['reminders'][] = [
+                        $remindersByRecipient[$recipient->id]['recipient'] = $recipient;
+                        $remindersByRecipient[$recipient->id]['reminders'][] = [
                             'record' => $record,
                             'due_date' => $dueDate,
                             'log' => $reminderLog,
@@ -71,39 +74,43 @@ class SendTrainingReminders extends Command
                 }
             });
 
-        foreach ($remindersByCrew as $crewReminder) {
-            foreach ($crewReminder['recipients'] as $recipientReminder) {
-                $recipient = $recipientReminder['recipient'];
-                $reminderItems = $recipientReminder['reminders'];
+        foreach ($remindersByRecipient as $recipientReminder) {
+            $recipient = $recipientReminder['recipient'];
+            $reminderItems = $recipientReminder['reminders'];
+            $crews = collect($reminderItems)
+                ->map(fn (array $reminder) => $reminder['record']->crew)
+                ->unique('id')
+                ->values();
+            $singleCrew = $crews->count() === 1 ? $crews->first() : null;
 
-                $recipient->notify(new TrainingExpiryNotification(
-                    crewId: $crewReminder['crew']->id,
-                    crewName: $crewReminder['crew']->name,
-                    trainings: array_map(
-                        fn (array $reminder): array => [
-                            'training_name' => $reminder['record']->type->name,
-                            'due_date' => $reminder['due_date']->format('d/m/Y'),
-                            'reminder_label' => self::REMINDER_LABELS[$reminder['stage']],
-                            'stage' => $reminder['stage'],
-                        ],
-                        $reminderItems,
-                    ),
-                ));
+            $recipient->notify(new TrainingExpiryNotification(
+                crewId: $singleCrew?->id,
+                crewName: $singleCrew?->name ?? 'Semua crew',
+                trainings: array_map(
+                    fn (array $reminder): array => [
+                        'crew_name' => $reminder['record']->crew->name,
+                        'training_name' => $reminder['record']->type->name,
+                        'due_date' => $reminder['due_date']->format('d/m/Y'),
+                        'reminder_label' => self::REMINDER_LABELS[$reminder['stage']],
+                        'stage' => $reminder['stage'],
+                    ],
+                    $reminderItems,
+                ),
+            ));
 
-                foreach ($reminderItems as $reminder) {
-                    if ($reminder['log'] === null) {
-                        $reminder['record']->reminderLogs()->create([
-                            'recipient_user_id' => $recipient->id,
-                            'due_date' => $reminder['due_date']->toDateString(),
-                            'stage' => $reminder['stage'],
-                        ]);
-                    } else {
-                        $reminder['log']->touch();
-                    }
+            foreach ($reminderItems as $reminder) {
+                if ($reminder['log'] === null) {
+                    $reminder['record']->reminderLogs()->create([
+                        'recipient_user_id' => $recipient->id,
+                        'due_date' => $reminder['due_date']->toDateString(),
+                        'stage' => $reminder['stage'],
+                    ]);
+                } else {
+                    $reminder['log']->touch();
                 }
-
-                $sentCount++;
             }
+
+            $sentCount++;
         }
 
         $this->info("Sent {$sentCount} training reminder notification(s).");
@@ -111,15 +118,40 @@ class SendTrainingReminders extends Command
         return self::SUCCESS;
     }
 
-    private function reminderStage(CarbonImmutable $today, CarbonImmutable $dueDate): ?string
+    private function dueDate(CarbonImmutable $nextCheck, string $trainingName): CarbonImmutable
     {
-        return match (true) {
-            $today->equalTo($dueDate->subMonthsNoOverflow(2)) => 'two_months',
-            $today->equalTo($dueDate->subMonthNoOverflow()) => 'one_month',
-            $today->equalTo($dueDate->subDays(7)) => 'one_week',
-            $today->greaterThan($dueDate) => 'expired_daily',
-            default => null,
-        };
+        if (strcasecmp($trainingName, 'English Proficiency') === 0) {
+            return $nextCheck;
+        }
+
+        return $nextCheck->startOfMonth()->addMonthNoOverflow();
+    }
+
+    private function reminderStage(
+        CarbonImmutable $today,
+        CarbonImmutable $dueDate,
+        CarbonImmutable $nextCheck,
+        string $trainingName,
+    ): ?string {
+        if (strcasecmp($trainingName, 'English Proficiency') === 0 && $today->equalTo($nextCheck)) {
+            return 'english_proficiency_due';
+        }
+
+        if ($today->greaterThan($dueDate)) {
+            return 'expired_daily';
+        }
+
+        $reminderOffsets = stripos($trainingName, 'simulator') !== false
+            ? [60 => 'sixty_days', 30 => 'thirty_days', 14 => 'fourteen_days', 7 => 'seven_days']
+            : [14 => 'fourteen_days', 7 => 'seven_days', 3 => 'three_days'];
+
+        foreach ($reminderOffsets as $days => $stage) {
+            if ($today->equalTo($dueDate->subDays($days))) {
+                return $stage;
+            }
+        }
+
+        return null;
     }
 
     /**

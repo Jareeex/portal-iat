@@ -188,18 +188,19 @@ test('master can upload photos when creating and updating employee profiles', fu
 
     $response = $this->post('/api/hr/employees', [
         'name' => 'Photo Employee',
-        'photo' => UploadedFile::fake()->image('employee.png'),
+        'photo' => UploadedFile::fake()->image('employee.jpeg'),
     ], ['Accept' => 'application/json'])
         ->assertCreated()
         ->assertJsonStructure(['data' => ['photo_url']]);
 
     $employee = Employee::findOrFail($response->json('data.id'));
     $firstPhotoPath = $employee->photo_path;
+    expect($response->json('data.photo_url'))->toBe('/storage/'.$firstPhotoPath);
     Storage::disk('public')->assertExists($firstPhotoPath);
 
     $this->post("/api/hr/employees/{$employee->id}", [
         '_method' => 'PUT',
-        'photo' => UploadedFile::fake()->image('updated-employee.png'),
+        'photo' => UploadedFile::fake()->image('updated-employee.jpeg'),
     ], ['Accept' => 'application/json'])
         ->assertOk()
         ->assertJsonStructure(['data' => ['photo_url']]);
