@@ -15,6 +15,9 @@ Route::middleware(config('hr.route.middleware'))
     ->group(function () {
         Route::get('attendance', [AttendanceController::class, 'index'])
             ->name('attendance.index');
+        Route::put('attendance/settings', [AttendanceController::class, 'updateSettings'])
+            ->middleware('page.access:hr-employees,edit')
+            ->name('attendance.settings.update');
         Route::post('attendance/clock-in', [AttendanceController::class, 'clockIn'])
             ->name('attendance.clock-in');
         Route::post('attendance/clock-out', [AttendanceController::class, 'clockOut'])

@@ -32,5 +32,12 @@ export const userService = {
             .put<ManagedUser>(`/master/users/${id}`, payload)
             .then((r) => r.data),
 
+    updateOnLeave: (id: number, enabled: boolean) =>
+        api
+            .patch<ManagedUser>(`/master/users/${id}/on-leave`, {
+                on_leave_enabled: enabled,
+            })
+            .then((r) => r.data),
+
     remove: (id: number) => api.delete(`/master/users/${id}`),
 };

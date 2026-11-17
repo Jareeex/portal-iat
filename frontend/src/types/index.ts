@@ -41,6 +41,7 @@ export interface ManagedUser {
     role: Role;
     is_active: boolean;
     department_id: number | null;
+    on_leave_enabled: boolean;
     department?: (DepartmentRef & { has_full_access: boolean }) | null;
     pages_count?: number;
 }
@@ -79,6 +80,18 @@ export interface AttendanceRecord {
     clock_out_at: string | null;
     clock_in_photo_available: boolean;
     clock_out_photo_available: boolean;
+    clock_in_latitude: number | null;
+    clock_in_longitude: number | null;
+    clock_in_distance_meters: number | null;
+    clock_in_is_offsite: boolean;
+    clock_in_reason: string | null;
+    clock_in_reason_details: string | null;
+    clock_out_latitude: number | null;
+    clock_out_longitude: number | null;
+    clock_out_distance_meters: number | null;
+    clock_out_is_offsite: boolean;
+    clock_out_reason: string | null;
+    clock_out_reason_details: string | null;
     employee: {
         id: number;
         name: string;
@@ -87,10 +100,22 @@ export interface AttendanceRecord {
     };
 }
 
+export interface AttendanceGeofenceSettings {
+    latitude: number;
+    longitude: number;
+    radius_meters: number;
+}
+
+export interface AttendanceGeofence extends AttendanceGeofenceSettings {
+    offsite_reasons: Record<string, string>;
+    on_leave_enabled: boolean;
+}
+
 export interface AttendanceIndex {
     today: AttendanceRecord | null;
     records: Paginated<AttendanceRecord>;
     timezone: string;
+    geofence: AttendanceGeofence;
 }
 
 export interface JobPosition {

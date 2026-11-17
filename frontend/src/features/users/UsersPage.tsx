@@ -64,6 +64,9 @@ export default function UsersPage() {
     const [form, setForm] = useState<FormState>(emptyForm);
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+    const [updatingOnLeaveUserId, setUpdatingOnLeaveUserId] = useState<
+        number | null
+    >(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -169,6 +172,29 @@ export default function UsersPage() {
         }
     }
 
+    async function updateOnLeave(u: ManagedUser, enabled: boolean) {
+        setUpdatingOnLeaveUserId(u.id);
+        setError(null);
+        try {
+            const updatedUser = await userService.updateOnLeave(u.id, enabled);
+            setUsers((currentUsers) =>
+                currentUsers.map((currentUser) =>
+                    currentUser.id === updatedUser.id
+                        ? {
+                              ...currentUser,
+                              on_leave_enabled:
+                                  updatedUser.on_leave_enabled,
+                          }
+                        : currentUser,
+                ),
+            );
+        } catch (updateError) {
+            setError(errorMessage(updateError));
+        } finally {
+            setUpdatingOnLeaveUserId(null);
+        }
+    }
+
     const isSelf = editing !== null && editing.id === me?.id;
 
     const columns: Column<ManagedUser>[] = [
@@ -217,6 +243,23 @@ export default function UsersPage() {
                 </span>
             ),
         },
+        {
+            header: 'On Leave',
+            render: (u) => (
+                <label className="check">
+                    <input
+                        type="checkbox"
+                        aria-label={`Aktifkan On Leave untuk ${u.name}`}
+                        checked={u.on_leave_enabled}
+                        disabled={updatingOnLeaveUserId === u.id}
+                        onChange={(event) =>
+                            void updateOnLeave(u, event.target.checked)
+                        }
+                    />
+                    On Leave
+                </label>
+            ),
+        },
         { header: 'Akses tambahan', render: (u) => u.pages_count ?? 0 },
         {
             header: '',
@@ -258,7 +301,8 @@ export default function UsersPage() {
                     <h2>Users</h2>
                     <p className="muted">
                         Kelola akun dan departemen. Halaman departemen terbuka
-                        otomatis.
+                        otomatis. On Leave mengizinkan absensi luar radius dan
+                        statusnya dicatat otomatis dari lokasi.
                     </p>
                 </div>
                 <button

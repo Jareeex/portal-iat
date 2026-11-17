@@ -7,9 +7,7 @@ import { Pagination } from '../../components/tables/Pagination';
 import { usePermission } from '../../hooks/usePermission';
 import { attendanceService } from '../../services/attendance.service';
 import { errorMessage } from '../../utils/error';
-import type { AttendanceRecord, Paginated } from '../../types';
-
-type ClockAction = 'clock-in' | 'clock-out';
+import type { AttendanceGeofence, AttendanceRecord } from '../../types';
 
 interface AttendancePreview {
     url: string;
@@ -57,6 +55,18 @@ function formatAttendanceDate(value: string, timezone: string): string {
     }).format(new Date(`${value}T00:00:00Z`));
 }
 
+function formatOffsiteReason(
+    reason: string | null,
+    details: string | null,
+    labels: Record<string, string>,
+): string | null {
+    if (!reason) return null;
+
+    const label = labels[reason] ?? reason;
+
+    return details ? `${label}: ${details}` : label;
+}
+
 export default function AttendancePage() {
     const { isMaster, canEdit } = usePermission();
     const canManage = isMaster || canEdit('hr-employees');
@@ -65,15 +75,16 @@ export default function AttendancePage() {
     const [query, setQuery] = useState('');
     const [page, setPage] = useState(1);
     const [timezone, setTimezone] = useState('Asia/Jakarta');
-    const [today, setToday] = useState<AttendanceRecord | null>(null);
+    const [geofence, setGeofence] = useState<AttendanceGeofence | null>(null);
+    const [radiusInput, setRadiusInput] = useState('');
+    const [settingsSaving, setSettingsSaving] = useState(false);
+    const [settingsError, setSettingsError] = useState<string | null>(null);
+    const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [lastPage, setLastPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [actionError, setActionError] = useState<string | null>(null);
-    const [actionSuccess, setActionSuccess] = useState<string | null>(null);
-    const [savingAction, setSavingAction] = useState<ClockAction | null>(null);
     const [editing, setEditing] = useState<AttendanceRecord | null>(null);
     const [editForm, setEditForm] = useState({
         clock_in_time: '',
@@ -85,15 +96,18 @@ export default function AttendancePage() {
     const [preview, setPreview] = useState<AttendancePreview | null>(null);
 
     const load = useCallback(async () => {
+        if (!canManage) return;
+
         setLoading(true);
         setError(null);
         try {
             const result = await attendanceService.list({
                 date,
-                q: canManage ? query || undefined : undefined,
+                q: query || undefined,
                 page,
             });
-            setToday(result.today);
+            setGeofence(result.geofence);
+            setRadiusInput(String(result.geofence.radius_meters));
             setRecords(result.records.data);
             setLastPage(result.records.last_page);
             setTotal(result.records.total);
@@ -116,27 +130,52 @@ export default function AttendancePage() {
         [preview],
     );
 
-    async function submitPhoto(action: ClockAction, photo: File) {
-        setSavingAction(action);
-        setActionError(null);
-        setActionSuccess(null);
+    async function submitSettings(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setSettingsError(null);
+        setSettingsSuccess(null);
+
+        const radiusMeters = Number(radiusInput);
+        if (!Number.isInteger(radiusMeters) || radiusMeters < 1 || radiusMeters > 100000) {
+            setSettingsError('Radius harus berupa bilangan bulat antara 1 dan 100.000 meter.');
+
+            return;
+        }
+
+        setSettingsSaving(true);
         try {
-            if (action === 'clock-in') {
-                await attendanceService.clockIn(photo);
-                setActionSuccess('Clock-in berhasil dicatat.');
-            } else {
-                await attendanceService.clockOut(photo);
-                setActionSuccess('Clock-out berhasil dicatat.');
-            }
-            await load();
-        } catch (submitError) {
-            setActionError(errorMessage(submitError));
+            const updatedSettings =
+                await attendanceService.updateGeofenceRadius(radiusMeters);
+            setGeofence((current) =>
+                current ? { ...current, ...updatedSettings } : current,
+            );
+            setRadiusInput(String(updatedSettings.radius_meters));
+            setSettingsSuccess('Radius lokasi kerja berhasil diperbarui.');
+        } catch (saveError) {
+            setSettingsError(errorMessage(saveError));
         } finally {
-            setSavingAction(null);
+            setSettingsSaving(false);
         }
     }
 
-    async function openPhoto(record: AttendanceRecord, action: ClockAction) {
+    if (!canManage) {
+        return (
+            <div>
+                <div className="page-head">
+                    <h2>Attendance</h2>
+                </div>
+                <Alert kind="info">
+                    Pengisian absensi tersedia melalui aplikasi mobile. Halaman
+                    ini hanya untuk pengelolaan HR.
+                </Alert>
+            </div>
+        );
+    }
+
+    async function openPhoto(
+        record: AttendanceRecord,
+        action: 'clock-in' | 'clock-out',
+    ) {
         const key = `${record.id}-${action}`;
         setPhotoLoading(key);
         setError(null);
@@ -183,24 +222,20 @@ export default function AttendancePage() {
     }
 
     const columns: Column<AttendanceRecord>[] = [
-        ...(canManage
-            ? [
-                  {
-                      header: 'Karyawan',
-                      render: (record: AttendanceRecord) => (
-                          <div>
-                              <strong>{record.employee.name}</strong>
-                              <div className="muted">
-                                  {record.employee.employee_number || 'No. pegawai belum diisi'}
-                                  {record.employee.department
-                                      ? ` · ${record.employee.department}`
-                                      : ''}
-                              </div>
-                          </div>
-                      ),
-                  },
-              ]
-            : []),
+        {
+            header: 'Karyawan',
+            render: (record: AttendanceRecord) => (
+                <div>
+                    <strong>{record.employee.name}</strong>
+                    <div className="muted">
+                        {record.employee.employee_number || 'No. pegawai belum diisi'}
+                        {record.employee.department
+                            ? ` · ${record.employee.department}`
+                            : ''}
+                    </div>
+                </div>
+            ),
+        },
         {
             header: 'Tanggal',
             render: (record) =>
@@ -211,6 +246,21 @@ export default function AttendancePage() {
             render: (record) => (
                 <div>
                     <strong>{formatTime(record.clock_in_at, timezone)}</strong>
+                    {record.clock_in_is_offsite && (
+                        <span className="badge badge-warning">On Leave</span>
+                    )}
+                    <div className="muted">
+                        {record.clock_in_distance_meters === null
+                            ? 'Lokasi tidak tercatat'
+                            : `${record.clock_in_distance_meters} m dari lokasi kerja`}
+                        {record.clock_in_is_offsite &&
+                            record.clock_in_reason &&
+                            ` · ${formatOffsiteReason(
+                                record.clock_in_reason,
+                                record.clock_in_reason_details,
+                                geofence?.offsite_reasons ?? {},
+                            )}`}
+                    </div>
                     {record.clock_in_photo_available && (
                         <button
                             type="button"
@@ -231,6 +281,23 @@ export default function AttendancePage() {
             render: (record) => (
                 <div>
                     <strong>{formatTime(record.clock_out_at, timezone)}</strong>
+                    {record.clock_out_is_offsite && (
+                        <span className="badge badge-warning">On Leave</span>
+                    )}
+                    {record.clock_out_at && (
+                        <div className="muted">
+                            {record.clock_out_distance_meters === null
+                                ? 'Lokasi tidak tercatat'
+                                : `${record.clock_out_distance_meters} m dari lokasi kerja`}
+                            {record.clock_out_is_offsite &&
+                                record.clock_out_reason &&
+                                ` · ${formatOffsiteReason(
+                                    record.clock_out_reason,
+                                    record.clock_out_reason_details,
+                                    geofence?.offsite_reasons ?? {},
+                                )}`}
+                        </div>
+                    )}
                     {record.clock_out_photo_available && (
                         <button
                             type="button"
@@ -246,117 +313,76 @@ export default function AttendancePage() {
                 </div>
             ),
         },
-        ...(canManage
-            ? [
-                  {
-                      header: 'Aksi',
-                      width: '90px',
-                      render: (record: AttendanceRecord) => (
-                          <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => openEdit(record)}
-                          >
-                              Edit jam
-                          </button>
-                      ),
-                  },
-              ]
-            : []),
+        {
+            header: 'Aksi',
+            width: '90px',
+            render: (record: AttendanceRecord) => (
+                <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => openEdit(record)}
+                >
+                    Edit jam
+                </button>
+            ),
+        },
     ];
 
     return (
         <div>
             <div className="page-head">
-                <h2>Attendance</h2>
+                <h2>Pengelolaan Attendance</h2>
                 <p className="muted">
-                    Pilih foto selfie untuk mencatat clock-in atau clock-out.
-                    Waktu absen diambil otomatis dari server.
+                    HR dan Master dapat melihat serta mengoreksi jam aktual.
                 </p>
             </div>
 
             {error && <Alert>{error}</Alert>}
-            {actionError && <Alert>{actionError}</Alert>}
-            {actionSuccess && <Alert kind="success">{actionSuccess}</Alert>}
 
-            <section className="panel attendance-panel">
-                <h3>Absensi hari ini</h3>
+            <section className="panel">
+                <h3>Lokasi kerja</h3>
                 <p className="muted">
-                    Tanggal dan waktu mengikuti zona waktu {timezone}.
+                    {geofence
+                        ? `Koordinat tetap: ${geofence.latitude.toFixed(6)}, ${geofence.longitude.toFixed(6)}.`
+                        : 'Memuat koordinat lokasi kerja...'}{' '}
+                    On Leave otomatis tercatat jika absensi dilakukan di luar
+                    radius dan akun karyawan telah diaktifkan Master.
                 </p>
-                <div className="attendance-summary">
-                    <div>
-                        <span className="muted">Clock-in</span>
-                        <strong>{formatTime(today?.clock_in_at ?? null, timezone)}</strong>
-                    </div>
-                    <div>
-                        <span className="muted">Clock-out</span>
-                        <strong>{formatTime(today?.clock_out_at ?? null, timezone)}</strong>
-                    </div>
-                </div>
-
-                <div className="attendance-actions">
-                    {!today?.clock_in_at && (
-                        <Field
-                            label="Foto selfie untuk clock-in"
-                            hint="Setelah foto dipilih, clock-in langsung tercatat. Maksimal 5 MB."
-                        >
-                            <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                capture="user"
-                                disabled={savingAction !== null}
-                                onChange={(event) => {
-                                    const photo = event.currentTarget.files?.[0];
-                                    event.currentTarget.value = '';
-                                    if (photo) void submitPhoto('clock-in', photo);
-                                }}
-                            />
-                        </Field>
-                    )}
-                    {today?.clock_in_at && !today.clock_out_at && (
-                        <Field
-                            label="Foto selfie untuk clock-out"
-                            hint="Setelah foto dipilih, clock-out langsung tercatat. Maksimal 5 MB."
-                        >
-                            <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                capture="user"
-                                disabled={savingAction !== null}
-                                onChange={(event) => {
-                                    const photo = event.currentTarget.files?.[0];
-                                    event.currentTarget.value = '';
-                                    if (photo) void submitPhoto('clock-out', photo);
-                                }}
-                            />
-                        </Field>
-                    )}
-                    {savingAction && (
-                        <Loader
-                            text={
-                                savingAction === 'clock-in'
-                                    ? 'Mencatat clock-in...'
-                                    : 'Mencatat clock-out...'
+                {settingsError && <Alert>{settingsError}</Alert>}
+                {settingsSuccess && (
+                    <Alert kind="success">{settingsSuccess}</Alert>
+                )}
+                <form className="toolbar" onSubmit={submitSettings}>
+                    <Field label="Radius absensi (meter)">
+                        <input
+                            type="number"
+                            min={1}
+                            max={100000}
+                            step={1}
+                            value={radiusInput}
+                            onChange={(event) =>
+                                setRadiusInput(event.target.value)
                             }
+                            required
+                            disabled={settingsSaving || geofence === null}
                         />
-                    )}
-                    {today?.clock_out_at && (
-                        <span className="badge badge-ok">
-                            Absensi hari ini lengkap
-                        </span>
-                    )}
-                </div>
+                    </Field>
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={settingsSaving || geofence === null}
+                    >
+                        {settingsSaving ? 'Menyimpan...' : 'Simpan radius'}
+                    </button>
+                </form>
             </section>
 
             <section className="panel attendance-records">
                 <div className="page-head page-head-row">
                     <div>
-                        <h3>{canManage ? 'Data absensi karyawan' : 'Riwayat absensi'}</h3>
+                        <h3>Data absensi karyawan</h3>
                         <p className="muted">
-                            {canManage
-                                ? 'HR dan Master dapat melihat serta mengoreksi jam aktual.'
-                                : 'Riwayat absensi akun Anda.'}
+                            HR dan Master dapat melihat serta mengoreksi jam aktual.
                         </p>
                     </div>
                 </div>
@@ -379,23 +405,19 @@ export default function AttendancePage() {
                             }}
                         />
                     </Field>
-                    {canManage && (
-                        <Field label="Cari karyawan">
-                            <input
-                                type="search"
-                                placeholder="Nama atau no. pegawai"
-                                value={queryInput}
-                                onChange={(event) =>
-                                    setQueryInput(event.target.value)
-                                }
-                            />
-                        </Field>
-                    )}
-                    {canManage && (
-                        <button type="submit" className="btn">
-                            Cari
-                        </button>
-                    )}
+                    <Field label="Cari karyawan">
+                        <input
+                            type="search"
+                            placeholder="Nama atau no. pegawai"
+                            value={queryInput}
+                            onChange={(event) =>
+                                setQueryInput(event.target.value)
+                            }
+                        />
+                    </Field>
+                    <button type="submit" className="btn">
+                        Cari
+                    </button>
                 </form>
 
                 {loading ? (

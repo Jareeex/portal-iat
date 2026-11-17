@@ -5,8 +5,11 @@ namespace App\Modules\Hr\Http\Controllers;
 use App\Models\User;
 use App\Modules\Hr\Http\Requests\StoreAttendancePhotoRequest;
 use App\Modules\Hr\Http\Requests\UpdateAttendanceRequest;
+use App\Modules\Hr\Http\Requests\UpdateAttendanceSettingsRequest;
 use App\Modules\Hr\Models\Attendance;
+use App\Modules\Hr\Models\AttendanceSetting;
 use App\Modules\Hr\Models\Employee;
+use App\Modules\Hr\Support\AttendanceGeofenceService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +25,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AttendanceController extends Controller
 {
+    public function __construct(private AttendanceGeofenceService $geofence) {}
+
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -37,6 +42,7 @@ class AttendanceController extends Controller
         $timezone = (string) config('hr.attendance.timezone');
         $today = now($timezone)->toDateString();
         $date = $filters['date'] ?? $today;
+        $settings = AttendanceSetting::query()->findOrFail(1);
 
         $records = Attendance::query()
             ->with(['employee.user.department'])
@@ -64,6 +70,13 @@ class AttendanceController extends Controller
         return response()->json([
             'today' => $todayRecord ? $this->attendanceData($todayRecord) : null,
             'timezone' => $timezone,
+            'geofence' => [
+                'latitude' => $settings->latitude,
+                'longitude' => $settings->longitude,
+                'radius_meters' => $settings->radius_meters,
+                'offsite_reasons' => config('hr.attendance.offsite_reasons'),
+                'on_leave_enabled' => $user->on_leave_enabled,
+            ],
             'records' => [
                 'data' => $records->getCollection()->map(
                     fn (Attendance $attendance): array => $this->attendanceData($attendance),
@@ -72,6 +85,20 @@ class AttendanceController extends Controller
                 'last_page' => $records->lastPage(),
                 'total' => $records->total(),
                 'per_page' => $records->perPage(),
+            ],
+        ]);
+    }
+
+    public function updateSettings(UpdateAttendanceSettingsRequest $request): JsonResponse
+    {
+        $settings = AttendanceSetting::query()->findOrFail(1);
+        $settings->update($request->validated());
+
+        return response()->json([
+            'data' => [
+                'latitude' => $settings->latitude,
+                'longitude' => $settings->longitude,
+                'radius_meters' => $settings->radius_meters,
             ],
         ]);
     }
@@ -89,8 +116,16 @@ class AttendanceController extends Controller
                 'photo' => 'Foto clock-in wajib diunggah.',
             ]);
         }
+        $data = $request->validated();
+        $location = $this->geofence->evaluate(
+            $user,
+            (float) $data['latitude'],
+            (float) $data['longitude'],
+            isset($data['reason']) ? (string) $data['reason'] : null,
+            isset($data['reason_details']) ? (string) $data['reason_details'] : null,
+        );
 
-        $attendance = DB::transaction(function () use ($employee, $localNow, $photo): Attendance {
+        $attendance = DB::transaction(function () use ($employee, $localNow, $photo, $location): Attendance {
             Employee::query()->whereKey($employee->id)->lockForUpdate()->firstOrFail();
 
             $existing = Attendance::query()
@@ -118,6 +153,12 @@ class AttendanceController extends Controller
                 'attendance_date' => $localNow->toDateString(),
                 'clock_in_at' => $localNow->clone()->utc(),
                 'clock_in_photo_path' => $photoPath,
+                'clock_in_latitude' => $location['latitude'],
+                'clock_in_longitude' => $location['longitude'],
+                'clock_in_distance_meters' => $location['distance_meters'],
+                'clock_in_is_offsite' => $location['is_offsite'],
+                'clock_in_reason' => $location['reason'],
+                'clock_in_reason_details' => $location['reason_details'],
             ])->load(['employee.user.department']);
         });
 
@@ -137,8 +178,16 @@ class AttendanceController extends Controller
                 'photo' => 'Foto clock-out wajib diunggah.',
             ]);
         }
+        $data = $request->validated();
+        $location = $this->geofence->evaluate(
+            $user,
+            (float) $data['latitude'],
+            (float) $data['longitude'],
+            isset($data['reason']) ? (string) $data['reason'] : null,
+            isset($data['reason_details']) ? (string) $data['reason_details'] : null,
+        );
 
-        $attendance = DB::transaction(function () use ($employee, $localNow, $photo): Attendance {
+        $attendance = DB::transaction(function () use ($employee, $localNow, $photo, $location): Attendance {
             Employee::query()->whereKey($employee->id)->lockForUpdate()->firstOrFail();
 
             $attendance = Attendance::query()
@@ -170,6 +219,12 @@ class AttendanceController extends Controller
             $attendance->forceFill([
                 'clock_out_at' => $localNow->clone()->utc(),
                 'clock_out_photo_path' => $photoPath,
+                'clock_out_latitude' => $location['latitude'],
+                'clock_out_longitude' => $location['longitude'],
+                'clock_out_distance_meters' => $location['distance_meters'],
+                'clock_out_is_offsite' => $location['is_offsite'],
+                'clock_out_reason' => $location['reason'],
+                'clock_out_reason_details' => $location['reason_details'],
             ])->save();
 
             return $attendance->load(['employee.user.department']);
@@ -227,6 +282,18 @@ class AttendanceController extends Controller
      *     clock_out_at: string|null,
      *     clock_in_photo_available: bool,
      *     clock_out_photo_available: bool,
+     *     clock_in_latitude: float|null,
+     *     clock_in_longitude: float|null,
+     *     clock_in_distance_meters: int|null,
+     *     clock_in_is_offsite: bool,
+     *     clock_in_reason: string|null,
+     *     clock_in_reason_details: string|null,
+     *     clock_out_latitude: float|null,
+     *     clock_out_longitude: float|null,
+     *     clock_out_distance_meters: int|null,
+     *     clock_out_is_offsite: bool,
+     *     clock_out_reason: string|null,
+     *     clock_out_reason_details: string|null,
      *     employee: array{id: int, name: string, employee_number: string|null, department: string|null}
      * }
      */
@@ -241,6 +308,18 @@ class AttendanceController extends Controller
             'clock_out_at' => $attendance->clock_out_at?->toIso8601String(),
             'clock_in_photo_available' => true,
             'clock_out_photo_available' => $attendance->clock_out_photo_path !== null,
+            'clock_in_latitude' => $attendance->clock_in_latitude,
+            'clock_in_longitude' => $attendance->clock_in_longitude,
+            'clock_in_distance_meters' => $attendance->clock_in_distance_meters,
+            'clock_in_is_offsite' => $attendance->clock_in_is_offsite,
+            'clock_in_reason' => $attendance->clock_in_reason,
+            'clock_in_reason_details' => $attendance->clock_in_reason_details,
+            'clock_out_latitude' => $attendance->clock_out_latitude,
+            'clock_out_longitude' => $attendance->clock_out_longitude,
+            'clock_out_distance_meters' => $attendance->clock_out_distance_meters,
+            'clock_out_is_offsite' => $attendance->clock_out_is_offsite,
+            'clock_out_reason' => $attendance->clock_out_reason,
+            'clock_out_reason_details' => $attendance->clock_out_reason_details,
             'employee' => [
                 'id' => $employee->id,
                 'name' => $employee->user_id === null
