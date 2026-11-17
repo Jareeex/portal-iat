@@ -9,6 +9,16 @@ return [
 
     'photo_disk' => 'public',
     'per_page' => 15,
+    'attendance' => [
+        'disk' => 'local',
+        'timezone' => 'Asia/Jakarta',
+        'offsite_reasons' => [
+            'meeting' => 'Meeting',
+            'dinas_luar' => 'Dinas luar',
+            'kunjungan_kerja' => 'Kunjungan kerja',
+            'other' => 'Lainnya',
+        ],
+    ],
     'leave' => [
         'exclude_weekends' => true,
         'holidays' => [],

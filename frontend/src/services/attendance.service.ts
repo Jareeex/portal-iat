@@ -1,0 +1,80 @@
+import api from './api';
+import type {
+    AttendanceGeofenceSettings,
+    AttendanceIndex,
+    AttendanceRecord,
+    Paginated,
+} from '../types';
+
+export interface AttendanceLocationPayload {
+    latitude: number;
+    longitude: number;
+    reason?: string;
+    reason_details?: string;
+}
+
+export interface AttendanceListParams {
+    date: string;
+    q?: string;
+    page?: number;
+}
+
+export const attendanceService = {
+    list: (params: AttendanceListParams) =>
+        api
+            .get<AttendanceIndex>('/hr/attendance', { params })
+            .then((response) => response.data),
+
+    clockIn: (photo: File, location: AttendanceLocationPayload) => {
+        const formData = new FormData();
+        formData.append('photo', photo);
+        formData.append('latitude', String(location.latitude));
+        formData.append('longitude', String(location.longitude));
+        if (location.reason) formData.append('reason', location.reason);
+        if (location.reason_details) {
+            formData.append('reason_details', location.reason_details);
+        }
+
+        return api
+            .post<{ data: AttendanceRecord }>('/hr/attendance/clock-in', formData)
+            .then((response) => response.data.data);
+    },
+
+    clockOut: (photo: File, location: AttendanceLocationPayload) => {
+        const formData = new FormData();
+        formData.append('photo', photo);
+        formData.append('latitude', String(location.latitude));
+        formData.append('longitude', String(location.longitude));
+        if (location.reason) formData.append('reason', location.reason);
+        if (location.reason_details) {
+            formData.append('reason_details', location.reason_details);
+        }
+
+        return api
+            .post<{ data: AttendanceRecord }>('/hr/attendance/clock-out', formData)
+            .then((response) => response.data.data);
+    },
+
+    updateGeofenceRadius: (radius_meters: number) =>
+        api
+            .put<{ data: AttendanceGeofenceSettings }>(
+                '/hr/attendance/settings',
+                { radius_meters },
+            )
+            .then((response) => response.data.data),
+
+    update: (
+        id: number,
+        payload: { clock_in_time: string; clock_out_time: string | null },
+    ) =>
+        api
+            .put<{ data: AttendanceRecord }>(`/hr/attendance/${id}`, payload)
+            .then((response) => response.data.data),
+
+    photo: (id: number, type: 'clock-in' | 'clock-out') =>
+        api
+            .get<Blob>(`/hr/attendance/${id}/photo/${type}`, {
+                responseType: 'blob',
+            })
+            .then((response) => response.data),
+};

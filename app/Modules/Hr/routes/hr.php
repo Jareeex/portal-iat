@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Hr\Http\Controllers\AttendanceController;
 use App\Modules\Hr\Http\Controllers\EmployeeController;
 use App\Modules\Hr\Http\Controllers\ExperienceController;
 use App\Modules\Hr\Http\Controllers\JobPositionController;
@@ -12,6 +13,22 @@ Route::middleware(config('hr.route.middleware'))
     ->prefix(config('hr.route.prefix'))
     ->name(config('hr.route.name'))
     ->group(function () {
+        Route::get('attendance', [AttendanceController::class, 'index'])
+            ->name('attendance.index');
+        Route::put('attendance/settings', [AttendanceController::class, 'updateSettings'])
+            ->middleware('page.access:hr-employees,edit')
+            ->name('attendance.settings.update');
+        Route::post('attendance/clock-in', [AttendanceController::class, 'clockIn'])
+            ->name('attendance.clock-in');
+        Route::post('attendance/clock-out', [AttendanceController::class, 'clockOut'])
+            ->name('attendance.clock-out');
+        Route::get('attendance/{attendance}/photo/{type}', [AttendanceController::class, 'photo'])
+            ->whereIn('type', ['clock-in', 'clock-out'])
+            ->name('attendance.photo');
+        Route::put('attendance/{attendance}', [AttendanceController::class, 'update'])
+            ->middleware('page.access:hr-employees,edit')
+            ->name('attendance.update');
+
         Route::get('employees', [EmployeeController::class, 'index'])
             ->middleware('page.access:hr-employees')
             ->name('employees.index');

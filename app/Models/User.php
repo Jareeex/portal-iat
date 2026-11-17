@@ -14,6 +14,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property-read Department|null $department
+ * @property bool $on_leave_enabled
  */
 class User extends Authenticatable
 {
@@ -26,7 +27,17 @@ class User extends Authenticatable
 
     public const ROLE_USER = 'user';
 
-    protected $fillable = ['name', 'email', 'password', 'role', 'is_active', 'department_id'];
+    protected $attributes = ['on_leave_enabled' => false];
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+        'is_active',
+        'department_id',
+        'on_leave_enabled',
+    ];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -35,6 +46,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'on_leave_enabled' => 'boolean',
             'training_reminder_enabled' => 'boolean',
         ];
     }

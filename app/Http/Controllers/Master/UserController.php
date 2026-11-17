@@ -48,6 +48,16 @@ class UserController extends Controller
         return response()->json($this->users->update($user, $data));
     }
 
+    public function updateOnLeave(Request $request, User $user): JsonResponse
+    {
+        $data = $request->validate([
+            'on_leave_enabled' => ['required', 'boolean'],
+        ]);
+        $user->update($data);
+
+        return response()->json($user->refresh());
+    }
+
     public function destroy(Request $request, User $user): JsonResponse
     {
         if ($request->user()->is($user)) {

@@ -16,6 +16,7 @@ import TicketCreatePage from '../features/it-tickets/TicketCreatePage';
 import TicketDetailPage from '../features/it-tickets/TicketDetailPage';
 import ProfilePage from '../features/profile/ProfilePage';
 import TrainingRemindersPage from '../features/training/TrainingRemindersPage';
+import AttendancePage from '../features/hr/AttendancePage';
 
 export const router = createBrowserRouter([
     {
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
                     },
                     { path: '/dashboard', element: <DashboardPage /> },
                     { path: '/profile', element: <ProfilePage /> },
+                    { path: '/attendance', element: <AttendancePage /> },
                     { path: '/leave-request', element: <LeaveRequestsPage /> },
                     { path: '/it/tickets', element: <ItTicketsPage /> },
                     { path: '/it/tickets/new', element: <TicketCreatePage /> },

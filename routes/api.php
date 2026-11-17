@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('master')->middleware('role.master')->group(function () {
         Route::apiResource('departments', DepartmentController::class);
         Route::apiResource('users', UserController::class);
+        Route::patch('users/{user}/on-leave', [UserController::class, 'updateOnLeave']);
         Route::apiResource('pages', PageController::class);
         Route::get('training-reminders/recipients', [TrainingReminderController::class, 'index']);
         Route::put('training-reminders/recipients/{user}', [TrainingReminderController::class, 'updateRecipient']);

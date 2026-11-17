@@ -12,10 +12,11 @@ import { TicketReminder } from '../features/it-tickets/TicketReminder';
 
 export default function UserLayout() {
     const { pages, user } = useAuth();
-    const { isMaster } = usePermission();
+    const { isMaster, canEdit } = usePermission();
     const [open, setOpen] = useState(false);
     const [unassignedTickets, setUnassignedTickets] = useState(0);
     const isItStaff = isMaster || user?.department?.code === 'IT';
+    const canManageHr = isMaster || canEdit('hr-employees');
 
     const items = useMemo<NavEntry[]>(() => {
         const availablePages = pages.filter(
@@ -29,6 +30,9 @@ export default function UserLayout() {
         const trainingPage = availablePages.find(
             (page) => page.key.trim().toLowerCase() === 'training',
         );
+        const hrEmployeesPage = availablePages.find(
+            (page) => page.key.trim().toLowerCase() === 'hr-employees',
+        );
         const trainingProgramPage = availablePages.find((page) => {
             const key = page.key.trim().toLowerCase();
             const name = page.name.trim().toLowerCase();
@@ -41,14 +45,48 @@ export default function UserLayout() {
         );
         const menuItems: NavEntry[] = [
             { to: '/dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
-            { to: '/leave-request', label: 'Leave Request', icon: 'calendar' },
-            {
-                to: '/it/tickets',
-                label: 'IT Tickets',
-                icon: 'ticket',
-                ...(isItStaff ? { badge: unassignedTickets } : {}),
-            },
         ];
+
+        if (canManageHr) {
+            menuItems.push({
+                label: 'HR',
+                icon: 'users',
+                children: [
+                    ...(hrEmployeesPage
+                        ? [
+                              {
+                                  to: hrEmployeesPage.route,
+                                  label: 'Employee',
+                                  icon: hrEmployeesPage.icon ?? 'employees',
+                              },
+                          ]
+                        : []),
+                    {
+                        to: '/leave-request',
+                        label: 'Leave Request',
+                        icon: 'calendar',
+                    },
+                    {
+                        to: '/attendance',
+                        label: 'Attendance',
+                        icon: 'clock',
+                    },
+                ],
+            });
+        } else {
+            menuItems.push({
+                to: '/leave-request',
+                label: 'Leave Request',
+                icon: 'calendar',
+            });
+        }
+
+        menuItems.push({
+            to: '/it/tickets',
+            label: 'IT Tickets',
+            icon: 'ticket',
+            ...(isItStaff ? { badge: unassignedTickets } : {}),
+        });
 
         const trainingChildren: NavItem[] = [];
         if (trainingPage || trainingProgramPage) {
@@ -75,7 +113,10 @@ export default function UserLayout() {
 
         menuItems.push(
             ...availablePages
-                .filter((page) => !trainingPages.has(page))
+                .filter(
+                    (page) =>
+                        !trainingPages.has(page) && page !== hrEmployeesPage,
+                )
                 .map((page) => ({
                     to: page.route,
                     label: page.name,
@@ -84,7 +125,7 @@ export default function UserLayout() {
         );
 
         return menuItems;
-    }, [isItStaff, pages, unassignedTickets]);
+    }, [canManageHr, isItStaff, pages, unassignedTickets]);
 
     return (
         <div className="shell">

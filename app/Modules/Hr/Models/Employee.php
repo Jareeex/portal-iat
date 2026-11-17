@@ -79,6 +79,12 @@ class Employee extends Model
         return $this->hasMany(EmployeeExperience::class)->orderByDesc('start_date');
     }
 
+    /** @return HasMany<Attendance, $this> */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
     /* ---------- Helpers ---------- */
 
     /** Ambil (atau buat) profil employee untuk sebuah user. */
