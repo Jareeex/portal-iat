@@ -41,6 +41,7 @@ export default function UserLayout() {
         );
         const menuItems: NavEntry[] = [
             { to: '/dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+            { to: '/attendance', label: 'Attendance', icon: 'clock' },
             { to: '/leave-request', label: 'Leave Request', icon: 'calendar' },
             {
                 to: '/it/tickets',

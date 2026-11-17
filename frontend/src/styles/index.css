@@ -25,6 +25,53 @@ textarea {
     resize: vertical;
 }
 
+.attendance-panel,
+.attendance-records {
+    margin-bottom: 20px;
+}
+.attendance-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    margin: 18px 0;
+}
+.attendance-summary > div {
+    display: flex;
+    min-width: 120px;
+    flex-direction: column;
+    gap: 4px;
+}
+.attendance-summary strong {
+    font-size: 22px;
+}
+.attendance-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 16px;
+}
+.attendance-actions .field {
+    min-width: min(100%, 320px);
+}
+.attendance-photo-link {
+    display: block;
+    padding: 3px 0;
+}
+.attendance-photo-preview {
+    display: block;
+    width: min(100%, 560px);
+    max-height: 70vh;
+    margin: 0 auto;
+    border-radius: var(--radius);
+    object-fit: contain;
+}
+.attendance-toolbar {
+    align-items: end;
+}
+.attendance-toolbar .field {
+    min-width: 180px;
+}
+
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #101c28;

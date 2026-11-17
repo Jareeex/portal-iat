@@ -9,6 +9,10 @@ return [
 
     'photo_disk' => 'public',
     'per_page' => 15,
+    'attendance' => [
+        'disk' => 'local',
+        'timezone' => 'Asia/Jakarta',
+    ],
     'leave' => [
         'exclude_weekends' => true,
         'holidays' => [],

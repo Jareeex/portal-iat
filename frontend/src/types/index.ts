@@ -72,6 +72,27 @@ export interface EmployeeLinkOption {
     name: string;
 }
 
+export interface AttendanceRecord {
+    id: number;
+    attendance_date: string;
+    clock_in_at: string;
+    clock_out_at: string | null;
+    clock_in_photo_available: boolean;
+    clock_out_photo_available: boolean;
+    employee: {
+        id: number;
+        name: string;
+        employee_number: string | null;
+        department: string | null;
+    };
+}
+
+export interface AttendanceIndex {
+    today: AttendanceRecord | null;
+    records: Paginated<AttendanceRecord>;
+    timezone: string;
+}
+
 export interface JobPosition {
     id: number;
     name: string;
