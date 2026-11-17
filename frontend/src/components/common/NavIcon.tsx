@@ -57,6 +57,12 @@ const icons: Record<string, ReactNode> = {
             <path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6" />
         </>
     ),
+    plane: (
+        <>
+            <path d="m2 16 20-8-6 14-4-7-10 1z" />
+            <path d="m12 15 4-6" />
+        </>
+    ),
     ticket: (
         <>
             <path d="M2 9a3 3 0 0 0 0 6v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a3 3 0 0 1 0-6V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />

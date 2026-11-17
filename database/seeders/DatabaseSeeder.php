@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Department;
 use App\Models\Page;
 use App\Models\User;
+use App\Modules\Fis\Database\Seeders\FisSeeder;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -16,6 +17,7 @@ class DatabaseSeeder extends Seeder
             ['code' => 'BOD', 'name' => 'Board of Directors', 'has_full_access' => true],
             ['code' => 'HR',  'name' => 'Human Resources',    'has_full_access' => false],
             ['code' => 'IT',  'name' => 'Information Technology', 'has_full_access' => false],
+            ['code' => 'MKT', 'name' => 'Marketing', 'has_full_access' => false],
         ];
 
         $dept = [];
@@ -42,6 +44,7 @@ class DatabaseSeeder extends Seeder
             ['department_id' => $dept['IT']->id,    'key' => 'it-assets',     'name' => 'IT Assets',    'route' => '/it/assets',     'icon' => 'server',           'sort_order' => 20],
             ['department_id' => $dept['IT']->id,    'key' => 'it-tickets',    'name' => 'IT Tickets',   'route' => '/it/tickets',    'icon' => 'ticket',           'sort_order' => 21],
             ['department_id' => $dept['IT']->id,    'key' => 'reports',       'name' => 'Reports',      'route' => '/reports',       'icon' => 'file-text',        'sort_order' => 22],
+            ['department_id' => $dept['MKT']->id, 'key' => 'fis', 'name' => 'FIS', 'description' => 'Flight Information System', 'route' => '/fis', 'icon' => 'plane', 'sort_order' => 30],
         ];
 
         foreach ($pages as $page) {
@@ -49,5 +52,6 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call(TrainingPortalSeeder::class);
+        $this->call(FisSeeder::class);
     }
 }

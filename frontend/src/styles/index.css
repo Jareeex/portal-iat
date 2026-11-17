@@ -1216,6 +1216,135 @@ input[type='checkbox'] {
     border-top: 1px solid var(--border);
     text-align: center;
 }
+.fis-page {
+    min-width: 0;
+}
+.fis-toolbar {
+    align-items: flex-end;
+}
+.fis-toolbar > input {
+    flex: 1 1 280px;
+}
+.fis-toolbar .field {
+    margin-bottom: 0;
+}
+.airport-picker {
+    position: relative;
+    min-width: 0;
+}
+.airport-picker-options {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 4px);
+    left: 0;
+    width: max(100%, 300px);
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+}
+.airport-picker-option {
+    display: grid;
+    width: 100%;
+    gap: 2px;
+    padding: 9px 11px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+}
+.airport-picker-option:hover,
+.airport-picker-option:focus-visible {
+    background: var(--accent-bg);
+}
+.airport-picker-option span,
+.airport-picker-option small,
+.airport-picker-message,
+.airport-picker-error {
+    color: var(--muted);
+    font-size: 12px;
+}
+.airport-picker-message,
+.airport-picker-error {
+    padding: 10px 12px;
+}
+.airport-picker-error {
+    color: var(--danger);
+}
+.fis-section {
+    margin-top: 16px;
+    padding: 16px;
+}
+.fis-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.fis-section-head h3,
+.fis-section h3 {
+    font-size: 16px;
+}
+.fis-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+}
+.fis-fields {
+    display: grid;
+    flex: 1;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0 12px;
+    min-width: 0;
+}
+.fis-fields .field {
+    min-width: 0;
+}
+.fis-row > .btn {
+    margin-bottom: 14px;
+}
+.fis-form {
+    max-height: min(76vh, 900px);
+    overflow: auto;
+    padding: 18px;
+}
+.fis-form > .fis-fields {
+    margin-bottom: 16px;
+}
+.fis-form-actions {
+    position: sticky;
+    bottom: -18px;
+    padding: 12px 0;
+    background: var(--surface);
+}
+.fis-detail {
+    max-height: 75vh;
+    overflow: auto;
+    padding: 18px;
+}
+.fis-detail h3 {
+    margin: 18px 0 10px;
+    font-size: 16px;
+}
+.fis-other-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+.fis-other-list dt {
+    color: var(--muted);
+    font-size: 12px;
+}
+.fis-other-list dd {
+    margin: 2px 0 0;
+}
 .training-program-group-row td {
     background: #1681aa;
     color: #fff;
