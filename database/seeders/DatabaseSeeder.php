@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\Department;
 use App\Models\Page;
 use App\Models\User;
-use App\Modules\Fis\Database\Seeders\FisSeeder;
+use App\Modules\Fis\Seeders\FisSeeder;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
