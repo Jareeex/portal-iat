@@ -11,10 +11,13 @@ use App\Modules\Hr\Models\Attendance;
 use App\Modules\Hr\Models\AttendanceSetting;
 use App\Modules\Hr\Models\Employee;
 use App\Modules\Hr\Support\AttendanceGeofenceService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
@@ -101,6 +104,37 @@ class AttendanceController extends Controller
                     ->values()
                 : [],
         ]);
+    }
+
+    public function report(Request $request): JsonResponse
+    {
+        $filters = $this->attendanceReportFilters($request);
+        $records = $this->attendanceReportRecords($filters);
+
+        return response()->json([
+            'data' => $records->map(
+                fn (Attendance $attendance): array => $this->attendanceData($attendance),
+            )->values(),
+        ]);
+    }
+
+    public function reportPdf(Request $request): Response
+    {
+        $filters = $this->attendanceReportFilters($request);
+        $records = $this->attendanceReportRecords($filters);
+        $timezone = (string) config('hr.attendance.timezone');
+
+        return Pdf::loadView('pdf.attendance-report', [
+            'employeeGroups' => $records->groupBy('employee_id'),
+            'from' => $filters['from'],
+            'to' => $filters['to'],
+            'name' => $filters['name'] ?? null,
+            'timezone' => $timezone,
+            'offsiteReasons' => config('hr.attendance.offsite_reasons'),
+            'generatedAt' => now($timezone),
+        ])
+            ->setPaper('a4', 'landscape')
+            ->download("attendance-report-{$filters['from']}-{$filters['to']}.pdf");
     }
 
     public function storeManual(StoreManualAttendanceRequest $request): JsonResponse
@@ -445,5 +479,50 @@ class AttendanceController extends Controller
                     : $employee->user->department?->name,
             ],
         ];
+    }
+
+    /**
+     * @return array{from: string, to: string, name?: string}
+     */
+    private function attendanceReportFilters(Request $request): array
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User && Gate::allows('hr.manage'), 403);
+
+        $filters = $request->validate([
+            'from' => ['required', 'date_format:Y-m-d'],
+            'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'name' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        if (isset($filters['name'])) {
+            $filters['name'] = trim($filters['name']);
+        }
+
+        return $filters;
+    }
+
+    /**
+     * @param  array{from: string, to: string, name?: string}  $filters
+     * @return EloquentCollection<int, Attendance>
+     */
+    private function attendanceReportRecords(array $filters): EloquentCollection
+    {
+        return Attendance::query()
+            ->with(['employee.user.department'])
+            ->whereDate('attendance_date', '>=', $filters['from'])
+            ->whereDate('attendance_date', '<=', $filters['to'])
+            ->when(isset($filters['name']) && $filters['name'] !== '', function (Builder $query) use ($filters): void {
+                $name = $filters['name'];
+                $query->whereHas('employee', function (Builder $employeeQuery) use ($name): void {
+                    $employeeQuery
+                        ->where('name', 'like', "%{$name}%")
+                        ->orWhereHas('user', fn (Builder $userQuery) => $userQuery
+                            ->where('name', 'like', "%{$name}%"));
+                });
+            })
+            ->orderBy('employee_id')
+            ->orderBy('attendance_date')
+            ->get();
     }
 }
