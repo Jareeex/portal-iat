@@ -3,6 +3,7 @@ import type {
     AttendanceGeofenceSettings,
     AttendanceIndex,
     AttendanceRecord,
+    AttendanceUserOption,
     Paginated,
 } from '../types';
 
@@ -65,11 +66,29 @@ export const attendanceService = {
 
     update: (
         id: number,
-        payload: { clock_in_time: string; clock_out_time: string | null },
+        payload: {
+            user_id: number;
+            attendance_date: string;
+            clock_in_time: string;
+            clock_out_time: string | null;
+        },
     ) =>
         api
             .put<{ data: AttendanceRecord }>(`/hr/attendance/${id}`, payload)
             .then((response) => response.data.data),
+
+    createManual: (payload: {
+        user_id: number;
+        attendance_date: string;
+        clock_in_time: string;
+        clock_out_time: string | null;
+    }) =>
+        api
+            .post<{ data: AttendanceRecord }>('/hr/attendance', payload)
+            .then((response) => response.data.data),
+
+    remove: (id: number) =>
+        api.delete<{ message: string }>(`/hr/attendance/${id}`),
 
     photo: (id: number, type: 'clock-in' | 'clock-out') =>
         api

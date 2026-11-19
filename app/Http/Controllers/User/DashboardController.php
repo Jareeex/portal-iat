@@ -15,6 +15,13 @@ class DashboardController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
+        $pages = $this->access->pagesFor($user);
+
+        if (! $user->isMaster()) {
+            $grantedPageIds = $user->pages()->pluck('pages.id');
+            $pages = $pages->whereIn('id', $grantedPageIds)->values();
+        }
+
         $crew = $user->crew;
         $crew?->loadMissing('trainingAircrafts');
         $expiredTrainings = $crew
@@ -35,7 +42,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'greeting' => "Halo, {$user->name}",
-            'pages' => $this->access->pagesFor($user),
+            'pages' => $pages,
             'expired_trainings' => $expiredTrainings,
         ]);
     }

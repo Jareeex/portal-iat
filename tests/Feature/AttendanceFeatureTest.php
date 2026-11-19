@@ -146,6 +146,8 @@ test('master and employee page editors can correct attendance times', function (
         ->assertOk()
         ->assertJsonPath('records.total', 1);
     $this->putJson("/api/hr/attendance/{$attendance->id}", [
+        'user_id' => $employee->id,
+        'attendance_date' => '2026-11-16',
         'clock_in_time' => '08:30',
         'clock_out_time' => '17:00',
     ])->assertOk()
@@ -155,6 +157,8 @@ test('master and employee page editors can correct attendance times', function (
     $viewer = User::factory()->create(['is_active' => true]);
     Sanctum::actingAs($viewer);
     $this->putJson("/api/hr/attendance/{$attendance->id}", [
+        'user_id' => $employee->id,
+        'attendance_date' => '2026-11-16',
         'clock_in_time' => '08:30',
         'clock_out_time' => '17:00',
     ])->assertForbidden();
@@ -165,6 +169,8 @@ test('master and employee page editors can correct attendance times', function (
     ]);
     Sanctum::actingAs($master);
     $this->putJson("/api/hr/attendance/{$attendance->id}", [
+        'user_id' => $employee->id,
+        'attendance_date' => '2026-11-16',
         'clock_in_time' => '08:45',
         'clock_out_time' => '17:15',
     ])->assertOk();
@@ -185,10 +191,107 @@ test('attendance correction rejects a clock-out time before clock-in', function 
 
     Sanctum::actingAs($master);
     $this->putJson("/api/hr/attendance/{$attendance->id}", [
+        'user_id' => $user->id,
+        'attendance_date' => '2026-11-16',
         'clock_in_time' => '09:00',
         'clock_out_time' => '08:59',
     ])->assertUnprocessable()
         ->assertJsonValidationErrors('clock_out_time');
+});
+
+test('HR editors can create, edit, and delete manual attendance records', function () {
+    Storage::fake('local');
+    $department = Department::create([
+        'name' => 'Human Resources',
+        'code' => 'HR',
+        'has_full_access' => false,
+    ]);
+    $page = Page::create([
+        'department_id' => $department->id,
+        'key' => 'hr-employees',
+        'name' => 'Employees',
+        'route' => '/hr/employees',
+        'is_active' => true,
+    ]);
+    $editor = User::factory()->create([
+        'department_id' => $department->id,
+        'is_active' => true,
+    ]);
+    $employee = User::factory()->create(['is_active' => true]);
+    $replacementEmployee = User::factory()->create(['is_active' => true]);
+    app(AccessService::class)->sync($editor, [$page->id], [$page->id]);
+    Sanctum::actingAs($editor);
+
+    $payload = [
+        'user_id' => $employee->id,
+        'attendance_date' => '2026-11-16',
+        'clock_in_time' => '08:15',
+        'clock_out_time' => '17:00',
+    ];
+
+    $this->postJson('/api/hr/attendance', [
+        ...$payload,
+        'clock_out_time' => '08:14',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('clock_out_time');
+
+    $this->postJson('/api/hr/attendance', $payload)
+        ->assertCreated()
+        ->assertJsonPath('data.attendance_date', '2026-11-16')
+        ->assertJsonPath('data.clock_in_photo_available', false)
+        ->assertJsonPath('data.clock_in_at', '2026-11-16T01:15:00+00:00')
+        ->assertJsonPath('data.employee.user_id', $employee->id);
+
+    $attendance = Attendance::query()->firstOrFail();
+    expect($attendance->clock_in_photo_path)->toBeNull();
+
+    $this->postJson('/api/hr/attendance', $payload)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('attendance_date');
+
+    $this->putJson("/api/hr/attendance/{$attendance->id}", [
+        'user_id' => $replacementEmployee->id,
+        'attendance_date' => '2026-11-17',
+        'clock_in_time' => '09:00',
+        'clock_out_time' => '17:30',
+    ])->assertOk()
+        ->assertJsonPath('data.attendance_date', '2026-11-17')
+        ->assertJsonPath('data.employee.user_id', $replacementEmployee->id)
+        ->assertJsonPath('data.clock_in_at', '2026-11-17T02:00:00+00:00');
+
+    Storage::disk('local')->put('hr/attendance/manual-clock-in.jpg', 'photo');
+    Storage::disk('local')->put('hr/attendance/manual-clock-out.jpg', 'photo');
+    $attendance->refresh()->forceFill([
+        'clock_in_photo_path' => 'hr/attendance/manual-clock-in.jpg',
+        'clock_out_photo_path' => 'hr/attendance/manual-clock-out.jpg',
+    ])->save();
+
+    $viewer = User::factory()->create(['is_active' => true]);
+    Sanctum::actingAs($viewer);
+    $this->deleteJson("/api/hr/attendance/{$attendance->id}")->assertForbidden();
+    $this->postJson('/api/hr/attendance', $payload)->assertForbidden();
+
+    Sanctum::actingAs($editor);
+    $this->deleteJson("/api/hr/attendance/{$attendance->id}")
+        ->assertOk()
+        ->assertJsonPath('message', 'Data attendance berhasil dihapus.');
+
+    $this->assertDatabaseMissing('attendances', ['id' => $attendance->id]);
+    Storage::disk('local')->assertMissing('hr/attendance/manual-clock-in.jpg');
+    Storage::disk('local')->assertMissing('hr/attendance/manual-clock-out.jpg');
+
+    $master = User::factory()->create([
+        'role' => User::ROLE_MASTER,
+        'is_active' => true,
+    ]);
+    Sanctum::actingAs($master);
+    $this->postJson('/api/hr/attendance', [
+        ...$payload,
+        'user_id' => $employee->id,
+        'attendance_date' => '2026-11-18',
+    ])->assertCreated();
+    $masterAttendance = Attendance::query()->whereDate('attendance_date', '2026-11-18')->firstOrFail();
+    $this->deleteJson("/api/hr/attendance/{$masterAttendance->id}")->assertOk();
 });
 
 test('master can enable or disable On Leave for an individual account', function () {

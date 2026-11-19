@@ -20,6 +20,8 @@ class UpdateAttendanceRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'attendance_date' => ['required', 'date_format:Y-m-d'],
             'clock_in_time' => ['required', 'date_format:H:i'],
             'clock_out_time' => ['nullable', 'date_format:H:i'],
         ];
@@ -49,7 +51,7 @@ class UpdateAttendanceRequest extends FormRequest
                 return;
             }
 
-            $date = $attendance->attendance_date->toDateString();
+            $date = (string) $this->input('attendance_date');
             $timezone = (string) config('hr.attendance.timezone');
             $clockIn = Carbon::parse("{$date} ".$this->input('clock_in_time'), $timezone);
             $clockOut = Carbon::parse("{$date} {$clockOutTime}", $timezone);

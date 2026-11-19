@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
  * @property int $employee_id
  * @property Carbon $attendance_date
  * @property Carbon $clock_in_at
- * @property string $clock_in_photo_path
+ * @property string|null $clock_in_photo_path
  * @property float|null $clock_in_latitude
  * @property float|null $clock_in_longitude
  * @property int|null $clock_in_distance_meters

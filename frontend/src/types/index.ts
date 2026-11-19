@@ -94,10 +94,17 @@ export interface AttendanceRecord {
     clock_out_reason_details: string | null;
     employee: {
         id: number;
+        user_id: number | null;
         name: string;
         employee_number: string | null;
         department: string | null;
     };
+}
+
+export interface AttendanceUserOption {
+    id: number;
+    name: string;
+    employee_number: string | null;
 }
 
 export interface AttendanceGeofenceSettings {
@@ -116,6 +123,7 @@ export interface AttendanceIndex {
     records: Paginated<AttendanceRecord>;
     timezone: string;
     geofence: AttendanceGeofence;
+    users: AttendanceUserOption[];
 }
 
 export interface JobPosition {

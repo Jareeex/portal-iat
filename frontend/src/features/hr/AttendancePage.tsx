@@ -7,7 +7,11 @@ import { Pagination } from '../../components/tables/Pagination';
 import { usePermission } from '../../hooks/usePermission';
 import { attendanceService } from '../../services/attendance.service';
 import { errorMessage } from '../../utils/error';
-import type { AttendanceGeofence, AttendanceRecord } from '../../types';
+import type {
+    AttendanceGeofence,
+    AttendanceRecord,
+    AttendanceUserOption,
+} from '../../types';
 
 interface AttendancePreview {
     url: string;
@@ -80,35 +84,48 @@ export default function AttendancePage() {
     const [settingsSaving, setSettingsSaving] = useState(false);
     const [settingsError, setSettingsError] = useState<string | null>(null);
     const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
+    const [actionSuccess, setActionSuccess] = useState<string | null>(null);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
+    const [users, setUsers] = useState<AttendanceUserOption[]>([]);
     const [lastPage, setLastPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [editing, setEditing] = useState<AttendanceRecord | null>(null);
     const [editForm, setEditForm] = useState({
+        user_id: '',
+        attendance_date: '',
         clock_in_time: '',
         clock_out_time: '',
     });
     const [editError, setEditError] = useState<string | null>(null);
     const [editSaving, setEditSaving] = useState(false);
+    const [manualOpen, setManualOpen] = useState(false);
+    const [manualForm, setManualForm] = useState({
+        user_id: '',
+        attendance_date: date,
+        clock_in_time: '',
+        clock_out_time: '',
+    });
+    const [manualError, setManualError] = useState<string | null>(null);
+    const [manualSaving, setManualSaving] = useState(false);
+    const [deleting, setDeleting] = useState<number | null>(null);
     const [photoLoading, setPhotoLoading] = useState<string | null>(null);
     const [preview, setPreview] = useState<AttendancePreview | null>(null);
 
     const load = useCallback(async () => {
-        if (!canManage) return;
-
         setLoading(true);
         setError(null);
         try {
             const result = await attendanceService.list({
                 date,
-                q: query || undefined,
+                q: canManage ? query || undefined : undefined,
                 page,
             });
             setGeofence(result.geofence);
             setRadiusInput(String(result.geofence.radius_meters));
             setRecords(result.records.data);
+            setUsers(result.users);
             setLastPage(result.records.last_page);
             setTotal(result.records.total);
             setTimezone(result.timezone);
@@ -158,20 +175,6 @@ export default function AttendancePage() {
         }
     }
 
-    if (!canManage) {
-        return (
-            <div>
-                <div className="page-head">
-                    <h2>Attendance</h2>
-                </div>
-                <Alert kind="info">
-                    Pengisian absensi tersedia melalui aplikasi mobile. Halaman
-                    ini hanya untuk pengelolaan HR.
-                </Alert>
-            </div>
-        );
-    }
-
     async function openPhoto(
         record: AttendanceRecord,
         action: 'clock-in' | 'clock-out',
@@ -195,10 +198,13 @@ export default function AttendancePage() {
     function openEdit(record: AttendanceRecord) {
         setEditing(record);
         setEditForm({
+            user_id: record.employee.user_id?.toString() ?? '',
+            attendance_date: record.attendance_date,
             clock_in_time: formatClockInput(record.clock_in_at, timezone),
             clock_out_time: formatClockInput(record.clock_out_at, timezone),
         });
         setEditError(null);
+        setActionSuccess(null);
     }
 
     async function submitEdit(event: FormEvent<HTMLFormElement>) {
@@ -209,15 +215,71 @@ export default function AttendancePage() {
         setEditError(null);
         try {
             await attendanceService.update(editing.id, {
+                user_id: Number(editForm.user_id),
+                attendance_date: editForm.attendance_date,
                 clock_in_time: editForm.clock_in_time,
                 clock_out_time: editForm.clock_out_time || null,
             });
             setEditing(null);
+            setActionSuccess('Data attendance berhasil diperbarui.');
             await load();
         } catch (saveError) {
             setEditError(errorMessage(saveError));
         } finally {
             setEditSaving(false);
+        }
+    }
+
+    function openManualEntry() {
+        setManualForm({
+            user_id: '',
+            attendance_date: date,
+            clock_in_time: '',
+            clock_out_time: '',
+        });
+        setManualError(null);
+        setActionSuccess(null);
+        setManualOpen(true);
+    }
+
+    async function submitManualEntry(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setManualSaving(true);
+        setManualError(null);
+        setActionSuccess(null);
+        try {
+            await attendanceService.createManual({
+                user_id: Number(manualForm.user_id),
+                attendance_date: manualForm.attendance_date,
+                clock_in_time: manualForm.clock_in_time,
+                clock_out_time: manualForm.clock_out_time || null,
+            });
+            setManualOpen(false);
+            setActionSuccess('Attendance manual berhasil ditambahkan.');
+            await load();
+        } catch (saveError) {
+            setManualError(errorMessage(saveError));
+        } finally {
+            setManualSaving(false);
+        }
+    }
+
+    async function deleteAttendance(record: AttendanceRecord) {
+        if (!window.confirm(`Hapus attendance ${record.employee.name} tanggal ${record.attendance_date}?`)) {
+            return;
+        }
+
+        setDeleting(record.id);
+        setError(null);
+        setActionSuccess(null);
+        try {
+            await attendanceService.remove(record.id);
+            setActionSuccess('Data attendance berhasil dihapus.');
+            await load();
+        } catch (deleteError) {
+            setError(errorMessage(deleteError));
+        } finally {
+            setDeleting(null);
         }
     }
 
@@ -313,78 +375,112 @@ export default function AttendancePage() {
                 </div>
             ),
         },
-        {
-            header: 'Aksi',
-            width: '90px',
-            render: (record: AttendanceRecord) => (
-                <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => openEdit(record)}
-                >
-                    Edit jam
-                </button>
-            ),
-        },
+        ...(canManage
+            ? [
+                  {
+                      header: 'Aksi',
+                      width: '170px',
+                      render: (record: AttendanceRecord) => (
+                          <div className="attendance-row-actions">
+                              <button
+                                  type="button"
+                                  className="btn btn-ghost"
+                                  onClick={() => openEdit(record)}
+                              >
+                                  Edit
+                              </button>
+                              <button
+                                  type="button"
+                                  className="btn btn-ghost"
+                                  disabled={deleting === record.id}
+                                  onClick={() => void deleteAttendance(record)}
+                              >
+                                  {deleting === record.id ? 'Menghapus...' : 'Hapus'}
+                              </button>
+                          </div>
+                      ),
+                  } satisfies Column<AttendanceRecord>,
+              ]
+            : []),
     ];
 
     return (
         <div>
             <div className="page-head">
-                <h2>Pengelolaan Attendance</h2>
-                <p className="muted">
-                    HR dan Master dapat melihat serta mengoreksi jam aktual.
-                </p>
+                <h2>{canManage ? 'Pengelolaan Attendance' : 'Attendances'}</h2>
+                {canManage ? (
+                    <p className="muted">
+                        HR dan Master dapat mengelola seluruh data attendance.
+                    </p>
+                ) : (
+                    <p className="muted">
+                        Riwayat attendance Anda. Pengisian absensi tersedia melalui aplikasi mobile.
+                    </p>
+                )}
             </div>
 
             {error && <Alert>{error}</Alert>}
+            {actionSuccess && <Alert kind="success">{actionSuccess}</Alert>}
 
-            <section className="panel">
-                <h3>Lokasi kerja</h3>
-                <p className="muted">
-                    {geofence
-                        ? `Koordinat tetap: ${geofence.latitude.toFixed(6)}, ${geofence.longitude.toFixed(6)}.`
-                        : 'Memuat koordinat lokasi kerja...'}{' '}
-                    On Leave otomatis tercatat jika absensi dilakukan di luar
-                    radius dan akun karyawan telah diaktifkan Master.
-                </p>
-                {settingsError && <Alert>{settingsError}</Alert>}
-                {settingsSuccess && (
-                    <Alert kind="success">{settingsSuccess}</Alert>
-                )}
-                <form className="toolbar" onSubmit={submitSettings}>
-                    <Field label="Radius absensi (meter)">
-                        <input
-                            type="number"
-                            min={1}
-                            max={100000}
-                            step={1}
-                            value={radiusInput}
-                            onChange={(event) =>
-                                setRadiusInput(event.target.value)
-                            }
-                            required
+            {canManage && (
+                <section className="panel">
+                    <h3>Lokasi kerja</h3>
+                    <p className="muted">
+                        {geofence
+                            ? `Koordinat tetap: ${geofence.latitude.toFixed(6)}, ${geofence.longitude.toFixed(6)}.`
+                            : 'Memuat koordinat lokasi kerja...'}{' '}
+                        On Leave otomatis tercatat jika absensi dilakukan di luar
+                        radius dan akun karyawan telah diaktifkan Master.
+                    </p>
+                    {settingsError && <Alert>{settingsError}</Alert>}
+                    {settingsSuccess && (
+                        <Alert kind="success">{settingsSuccess}</Alert>
+                    )}
+                    <form className="toolbar" onSubmit={submitSettings}>
+                        <Field label="Radius absensi (meter)">
+                            <input
+                                type="number"
+                                min={1}
+                                max={100000}
+                                step={1}
+                                value={radiusInput}
+                                onChange={(event) =>
+                                    setRadiusInput(event.target.value)
+                                }
+                                required
+                                disabled={settingsSaving || geofence === null}
+                            />
+                        </Field>
+                        <button
+                            type="submit"
+                            className="btn btn-primary"
                             disabled={settingsSaving || geofence === null}
-                        />
-                    </Field>
-                    <button
-                        type="submit"
-                        className="btn btn-primary"
-                        disabled={settingsSaving || geofence === null}
-                    >
-                        {settingsSaving ? 'Menyimpan...' : 'Simpan radius'}
-                    </button>
-                </form>
-            </section>
+                        >
+                            {settingsSaving ? 'Menyimpan...' : 'Simpan radius'}
+                        </button>
+                    </form>
+                </section>
+            )}
 
             <section className="panel attendance-records">
                 <div className="page-head page-head-row">
                     <div>
-                        <h3>Data absensi karyawan</h3>
+                        <h3>{canManage ? 'Data absensi karyawan' : 'Riwayat attendance saya'}</h3>
                         <p className="muted">
-                            HR dan Master dapat melihat serta mengoreksi jam aktual.
+                            {canManage
+                                ? 'Buat, koreksi, atau hapus catatan attendance karyawan.'
+                                : 'Data yang ditampilkan hanya attendance milik Anda.'}
                         </p>
                     </div>
+                    {canManage && (
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={openManualEntry}
+                        >
+                            Tambah attendance manual
+                        </button>
+                    )}
                 </div>
 
                 <form
@@ -405,19 +501,23 @@ export default function AttendancePage() {
                             }}
                         />
                     </Field>
-                    <Field label="Cari karyawan">
-                        <input
-                            type="search"
-                            placeholder="Nama atau no. pegawai"
-                            value={queryInput}
-                            onChange={(event) =>
-                                setQueryInput(event.target.value)
-                            }
-                        />
-                    </Field>
-                    <button type="submit" className="btn">
-                        Cari
-                    </button>
+                    {canManage && (
+                        <>
+                            <Field label="Cari karyawan">
+                                <input
+                                    type="search"
+                                    placeholder="Nama atau no. pegawai"
+                                    value={queryInput}
+                                    onChange={(event) =>
+                                        setQueryInput(event.target.value)
+                                    }
+                                />
+                            </Field>
+                            <button type="submit" className="btn">
+                                Cari
+                            </button>
+                        </>
+                    )}
                 </form>
 
                 {loading ? (
@@ -440,18 +540,140 @@ export default function AttendancePage() {
                 )}
             </section>
 
+            {manualOpen && (
+                <Modal
+                    title="Tambah attendance manual"
+                    onClose={() => setManualOpen(false)}
+                >
+                    <form className="form" onSubmit={submitManualEntry}>
+                        {manualError && <Alert>{manualError}</Alert>}
+                        {users.length === 0 && (
+                            <Alert kind="info">
+                                Belum ada user dengan profil karyawan yang dapat dipilih.
+                            </Alert>
+                        )}
+                        <Field label="Karyawan">
+                            <select
+                                value={manualForm.user_id}
+                                onChange={(event) =>
+                                    setManualForm({
+                                        ...manualForm,
+                                        user_id: event.target.value,
+                                    })
+                                }
+                                required
+                            >
+                                <option value="">Pilih karyawan</option>
+                                {users.map((user) => (
+                                    <option key={user.id} value={user.id}>
+                                        {user.name}
+                                        {user.employee_number
+                                            ? ` · ${user.employee_number}`
+                                            : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+                        <Field label="Tanggal attendance">
+                            <input
+                                type="date"
+                                value={manualForm.attendance_date}
+                                onChange={(event) =>
+                                    setManualForm({
+                                        ...manualForm,
+                                        attendance_date: event.target.value,
+                                    })
+                                }
+                                required
+                            />
+                        </Field>
+                        <Field label="Jam clock-in">
+                            <input
+                                type="time"
+                                value={manualForm.clock_in_time}
+                                onChange={(event) =>
+                                    setManualForm({
+                                        ...manualForm,
+                                        clock_in_time: event.target.value,
+                                    })
+                                }
+                                required
+                            />
+                        </Field>
+                        <Field label="Jam clock-out (opsional)">
+                            <input
+                                type="time"
+                                value={manualForm.clock_out_time}
+                                onChange={(event) =>
+                                    setManualForm({
+                                        ...manualForm,
+                                        clock_out_time: event.target.value,
+                                    })
+                                }
+                            />
+                        </Field>
+                        <div className="modal-actions">
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => setManualOpen(false)}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={manualSaving || users.length === 0}
+                            >
+                                {manualSaving ? 'Menyimpan...' : 'Simpan attendance'}
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
             {editing && (
                 <Modal
-                    title={`Koreksi jam absensi · ${editing.employee.name}`}
+                    title={`Edit attendance · ${editing.employee.name}`}
                     onClose={() => setEditing(null)}
                 >
                     <form className="form" onSubmit={submitEdit}>
                         {editError && <Alert>{editError}</Alert>}
-                        <p className="muted">
-                            {formatAttendanceDate(editing.attendance_date, timezone)}
-                            {' · '}
-                            {timezone}
-                        </p>
+                        <Field label="Karyawan">
+                            <select
+                                value={editForm.user_id}
+                                onChange={(event) =>
+                                    setEditForm({
+                                        ...editForm,
+                                        user_id: event.target.value,
+                                    })
+                                }
+                                required
+                            >
+                                <option value="">Pilih karyawan</option>
+                                {users.map((user) => (
+                                    <option key={user.id} value={user.id}>
+                                        {user.name}
+                                        {user.employee_number
+                                            ? ` · ${user.employee_number}`
+                                            : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+                        <Field label="Tanggal attendance">
+                            <input
+                                type="date"
+                                value={editForm.attendance_date}
+                                onChange={(event) =>
+                                    setEditForm({
+                                        ...editForm,
+                                        attendance_date: event.target.value,
+                                    })
+                                }
+                                required
+                            />
+                        </Field>
                         <Field label="Jam clock-in">
                             <input
                                 type="time"

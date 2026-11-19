@@ -45,6 +45,7 @@ export default function UserLayout() {
         );
         const menuItems: NavEntry[] = [
             { to: '/dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+            { to: '/attendance', label: 'Attendances', icon: 'clock' },
         ];
 
         if (canManageHr) {
@@ -65,11 +66,6 @@ export default function UserLayout() {
                         to: '/leave-request',
                         label: 'Leave Request',
                         icon: 'calendar',
-                    },
-                    {
-                        to: '/attendance',
-                        label: 'Attendance',
-                        icon: 'clock',
                     },
                 ],
             });
