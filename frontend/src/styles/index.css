@@ -1116,6 +1116,99 @@ input[type='checkbox'] {
     color: var(--muted);
     font-size: 13px;
 }
+.training-program-analytics {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr);
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.training-program-chart {
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+}
+.training-program-chart h3 {
+    margin: 0 0 12px;
+    font-size: 14px;
+}
+.training-program-pie-layout {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.training-program-pie {
+    width: 132px;
+    min-width: 132px;
+    height: 132px;
+}
+.training-program-pie-total,
+.training-program-pie-label,
+.training-program-chart-value,
+.training-program-chart-month {
+    fill: var(--text);
+    font-family: inherit;
+    text-anchor: middle;
+}
+.training-program-pie-total {
+    font-size: 22px;
+    font-weight: 700;
+}
+.training-program-pie-label,
+.training-program-chart-month {
+    fill: var(--muted);
+    font-size: 10px;
+}
+.training-program-chart-legend {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    color: var(--muted);
+    font-size: 12px;
+    list-style: none;
+}
+.training-program-chart-legend li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.training-program-chart-legend strong {
+    margin-left: auto;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+.training-program-bar-wrap {
+    overflow-x: auto;
+}
+.training-program-bar-wrap svg {
+    display: block;
+    width: 100%;
+    min-width: 650px;
+    height: auto;
+}
+.training-program-chart-axis {
+    stroke: var(--border);
+    stroke-width: 1;
+}
+.training-program-chart-value {
+    fill: var(--muted);
+    font-size: 9px;
+}
+.training-program-bar-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 6px;
+}
+.training-program-chart-note {
+    grid-column: 1 / -1;
+    margin: -4px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+}
 .training-program-legend {
     display: flex;
     flex-wrap: wrap;
@@ -1171,9 +1264,14 @@ input[type='checkbox'] {
 .training-program-key.actual {
     background: #2563eb;
 }
-.training-program-key.overdue {
-    border: 2px solid #dc2626;
+.training-program-key.pending {
     background: #facc15;
+}
+.training-program-key.missed {
+    background: #f97316;
+}
+.training-program-key.not-executed {
+    background: #dc2626;
 }
 .training-program-table-wrap {
     overflow: auto;
@@ -1405,6 +1503,25 @@ input[type='checkbox'] {
     font-weight: 600;
     text-align: left;
 }
+.training-program-outcome-row td:nth-child(2) {
+    position: sticky;
+    left: 40px;
+    z-index: 1;
+    padding: 5px 10px;
+    background: var(--surface);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: left;
+}
+.training-program-outcome-row.pending td:nth-child(2) {
+    color: #a16207;
+}
+.training-program-outcome-row.missed td:nth-child(2) {
+    color: #c2410c;
+}
+.training-program-outcome-row.not-executed td:nth-child(2) {
+    color: #dc2626;
+}
 .training-program-cell {
     width: 100%;
     min-height: 34px;
@@ -1435,6 +1552,27 @@ input[type='checkbox'] {
     display: block;
     font-size: 9px;
     font-weight: 400;
+}
+.training-program-cell.pending {
+    background: #facc15;
+    color: #713f12;
+}
+.training-program-cell.pending:hover {
+    background: #fbbf24;
+}
+.training-program-cell.missed {
+    background: #f97316;
+    color: #fff;
+}
+.training-program-cell.missed:hover {
+    background: #ea580c;
+}
+.training-program-cell.not-executed {
+    background: #dc2626;
+    color: #fff;
+}
+.training-program-cell.not-executed:hover {
+    background: #b91c1c;
 }
 .training-program-cell.empty {
     background: transparent;
@@ -1516,11 +1654,47 @@ input[type='checkbox'] {
 }
 .training-program-plan-list li {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
+}
+.training-program-plan-detail {
+    flex: 1;
+    min-width: 0;
+}
+.training-program-remark-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 6px 8px;
+    max-width: 440px;
+    margin-top: 8px;
+}
+.training-program-remark-editor label {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-size: 11px;
+}
+.training-program-remark-editor textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    resize: vertical;
+}
+.training-program-remark-editor .btn {
+    padding: 7px 9px;
+    font-size: 11px;
+}
+.training-program-remark {
+    white-space: pre-wrap;
 }
 .training-program-plan-list li:last-child,
 .training-program-crew-list li:last-child {
@@ -1535,6 +1709,46 @@ input[type='checkbox'] {
     margin-left: 8px;
     color: var(--ok-text);
     font-size: 12px;
+}
+.training-program-status {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--accent-bg);
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+}
+.training-program-status.completed {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+.training-program-status.pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+.training-program-status.missed {
+    background: #ffedd5;
+    color: #c2410c;
+}
+.training-program-status.not_executed {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.training-program-remark-editor .training-program-cancel-toggle {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+.training-program-cancel-toggle input {
+    width: auto;
+    margin: 0;
+}
+.training-program-remark-editor > .btn {
+    grid-column: 2;
 }
 .training-program-plan-actions {
     display: flex;
@@ -2436,6 +2650,9 @@ input[type='checkbox'] {
         align-items: flex-start;
         flex-direction: column;
     }
+    .training-program-analytics {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 700px) {
@@ -2519,6 +2736,13 @@ input[type='checkbox'] {
     }
     .training-program-stats {
         grid-template-columns: 1fr;
+    }
+    .training-program-plan-list li {
+        flex-direction: column;
+    }
+    .training-program-plan-actions {
+        width: 100%;
+        justify-content: flex-end;
     }
     .training-program-form-grid {
         grid-template-columns: 1fr;

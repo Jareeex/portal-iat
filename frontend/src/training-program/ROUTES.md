@@ -12,13 +12,17 @@ data and write operations use the Sanctum API registered from
 | DELETE | `/api/training/program/{program}` | Delete a program |
 | POST | `/api/training/program/plan/generate` | Generate missing plans |
 | POST | `/api/training/program/{program}/plans` | Add a crew to a plan |
-| PUT | `/api/training/program/plans/{plan}` | Move a planned crew |
+| PUT | `/api/training/program/plans/{plan}` | Move a plan or mark it not executed with a reason |
 | DELETE | `/api/training/program/plans/{plan}` | Remove a planned crew |
 | PUT | `/api/training/program/{program}/actuals/{year}/{month}` | Save actual training |
 | DELETE | `/api/training/program/actuals/{actual}` | Delete actual training |
 
 All endpoints require Sanctum authentication and access to the `training`
 page. Editing follows that page's edit permission.
+
+Unattended plans are classified by their planned month: current/future months
+are pending, while past months are missed and can be rescheduled. “Not
+executed” is a separate manual status and requires a reason.
 
 Run `php artisan migrate` to create the program tables. The
 `TrainingProgramSeeder` is called after training records by

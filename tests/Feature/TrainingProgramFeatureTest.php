@@ -4,6 +4,7 @@ use App\Models\Crew;
 use App\Models\CrewTraining;
 use App\Models\Page;
 use App\Models\TrainingProgram;
+use App\Models\TrainingProgramPlan;
 use App\Models\TrainingType;
 use App\Models\User;
 use Carbon\Carbon;
@@ -106,6 +107,37 @@ test('training managers can view plans, generate them and save actual training',
         ->assertJsonPath('created', 0)
         ->assertJsonPath('updated', 0);
 
+    $plan = TrainingProgramPlan::query()
+        ->where('program_id', $program->id)
+        ->where('year', $year)
+        ->firstOrFail();
+    $this->getJson("/api/training/program?year=$year")
+        ->assertOk()
+        ->assertJsonPath('programs.0.plans.0.status', 'pending')
+        ->assertJsonPath('summary.crew_pending', 1);
+
+    $this->putJson("/api/training/program/plans/{$plan->id}", [
+        'month' => $dueDate->month,
+        'not_executed' => true,
+    ])->assertUnprocessable();
+
+    $this->putJson("/api/training/program/plans/{$plan->id}", [
+        'month' => $dueDate->month,
+        'not_executed' => true,
+        'remarks' => 'Training dijadwalkan ulang.',
+    ])->assertOk();
+
+    $this->getJson("/api/training/program?year=$year")
+        ->assertOk()
+        ->assertJsonPath('programs.0.plans.0.remarks', 'Training dijadwalkan ulang.')
+        ->assertJsonPath('programs.0.plans.0.status', 'not_executed')
+        ->assertJsonPath('summary.crew_done', 0)
+        ->assertJsonPath('summary.crew_not_done', 1)
+        ->assertJsonPath('summary.crew_not_executed', 1)
+        ->assertJsonPath('summary.monthly_crew.2.pending', 0)
+        ->assertJsonPath('summary.monthly_crew.2.not_executed', 1)
+        ->assertJsonPath('summary.monthly_crew.2.not_completed', 1);
+
     $heldOn = Carbon::create($year, $dueDate->month, 10)->toDateString();
     $this->putJson(
         "/api/training/program/{$program->id}/actuals/{$year}/{$dueDate->month}",
@@ -115,6 +147,29 @@ test('training managers can view plans, generate them and save actual training',
             'update_records' => true,
         ],
     )->assertOk()->assertJsonPath('message', 'Realisasi tersimpan. Last/next check diperbarui untuk 1 crew.');
+
+    $this->getJson("/api/training/program?year=$year")
+        ->assertOk()
+        ->assertJsonPath('summary.crew_done', 1)
+        ->assertJsonPath('summary.crew_not_done', 0)
+        ->assertJsonPath('summary.crew_not_executed', 0)
+        ->assertJsonPath('summary.monthly_crew.2.completed', 1)
+        ->assertJsonPath('summary.monthly_crew.2.not_executed', 0)
+        ->assertJsonPath('summary.monthly_crew.2.not_completed', 0);
+
+    expect($plan->fresh()->not_executed)->toBeFalse();
+
+    TrainingProgramPlan::create([
+        'program_id' => $program->id,
+        'crew_id' => $crew->id,
+        'year' => now()->year - 1,
+        'month' => 12,
+    ]);
+    $this->getJson('/api/training/program?year='.(now()->year - 1))
+        ->assertOk()
+        ->assertJsonPath('programs.0.plans.0.status', 'missed')
+        ->assertJsonPath('summary.crew_missed', 1)
+        ->assertJsonPath('summary.monthly_crew.11.missed', 1);
 
     expect($crew->trainings()->first()->fresh()->last_check->toDateString())
         ->toBe($heldOn)

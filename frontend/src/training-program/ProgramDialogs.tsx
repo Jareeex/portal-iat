@@ -62,6 +62,13 @@ function DialogError({ error }: { error: string | null }) {
     return error ? <Alert>{error}</Alert> : null;
 }
 
+const PLAN_STATUS_LABELS = {
+    completed: 'Terlaksana',
+    pending: 'Belum terlaksana',
+    missed: 'Terlewat',
+    not_executed: 'Tidak terlaksana',
+} satisfies Record<ProgramRow['plans'][number]['status'], string>;
+
 export function PlanDialog({
     program,
     month,
@@ -77,20 +84,34 @@ export function PlanDialog({
     crews: CrewOpt[];
     manage: boolean;
     onClose: () => void;
-    onChanged: (message: string) => Promise<void>;
+    onChanged: (message: string, closeDialog?: boolean) => Promise<void>;
 }) {
     const [selectedCrew, setSelectedCrew] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
+    const [remarkDrafts, setRemarkDrafts] = useState<Record<number, string>>({});
+    const [notExecutedDrafts, setNotExecutedDrafts] = useState<
+        Record<number, boolean>
+    >({});
     const rows = program.plans.filter((plan) => plan.month === month);
     const planned = new Set(program.plans.map((plan) => plan.crew_id));
 
-    async function updatePlan(action: () => Promise<{ message: string }>) {
+    async function updatePlan(
+        action: () => Promise<{ message: string }>,
+        keepOpen = false,
+    ) {
         setBusy(true);
         setError(null);
+        setNotice(null);
         try {
             const result = await action();
-            await onChanged(result.message);
+            if (keepOpen) {
+                setNotice(result.message);
+                await onChanged(result.message, false);
+            } else {
+                await onChanged(result.message);
+            }
         } catch (cause) {
             setError(errorMessage(cause));
         } finally {
@@ -104,6 +125,7 @@ export function PlanDialog({
             onClose={onClose}
         >
             <DialogError error={error} />
+            {notice && <Alert kind="success">{notice}</Alert>}
             <p className="training-program-dialog-note">
                 Plan disusun dari last check training sebelumnya. Jatuh tempo
                 dihitung dari next check atau last check ditambah masa berlaku.
@@ -112,63 +134,160 @@ export function PlanDialog({
                 <p className="muted">Belum ada crew di plan bulan ini.</p>
             ) : (
                 <ul className="training-program-plan-list">
-                    {rows.map((plan) => (
-                        <li key={plan.id}>
-                            <div>
-                                <strong>{plan.name}</strong>
-                                {plan.done && (
-                                    <span className="training-program-done">
-                                        ✓ sudah ikut
+                    {rows.map((plan) => {
+                        const notExecuted =
+                            notExecutedDrafts[plan.id] ?? plan.not_executed;
+                        const remarks =
+                            remarkDrafts[plan.id] ?? plan.remarks ?? '';
+                        const hasChanges =
+                            notExecuted !== plan.not_executed ||
+                            remarks !== (plan.remarks ?? '');
+
+                        return (
+                            <li key={plan.id}>
+                                <div className="training-program-plan-detail">
+                                    <strong>{plan.name}</strong>
+                                    <span
+                                        className={`training-program-status ${plan.status}`}
+                                    >
+                                        {PLAN_STATUS_LABELS[plan.status]}
                                     </span>
-                                )}
-                                <p>
-                                    Jatuh tempo {fmtDate(plan.due_date)}
-                                    {plan.overdue &&
-                                        ` · sudah lewat sebelum ${year}`}
-                                </p>
-                            </div>
-                            {manage && (
-                                <div className="training-program-plan-actions">
-                                    <select
-                                        aria-label={`Pindah ${plan.name}`}
-                                        value={plan.month}
-                                        disabled={busy}
-                                        onChange={(event) =>
-                                            void updatePlan(() =>
-                                                trainingProgramService.updatePlan(
-                                                    plan.id,
-                                                    Number(event.target.value),
-                                                ),
-                                            )
-                                        }
-                                    >
-                                        {MONTHS.map((label, index) => (
-                                            <option
-                                                key={label}
-                                                value={index + 1}
+                                    <p>
+                                        Jatuh tempo {fmtDate(plan.due_date)}
+                                        {plan.overdue &&
+                                            ` · sudah lewat sebelum ${year}`}
+                                    </p>
+                                    {!plan.done && manage && (
+                                        <div className="training-program-remark-editor">
+                                            <label className="training-program-cancel-toggle">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={notExecuted}
+                                                    disabled={busy}
+                                                    onChange={(event) =>
+                                                        setNotExecutedDrafts(
+                                                            (drafts) => ({
+                                                                ...drafts,
+                                                                [plan.id]:
+                                                                    event.target
+                                                                        .checked,
+                                                            }),
+                                                        )
+                                                    }
+                                                />
+                                                Tandai tidak terlaksana
+                                            </label>
+                                            {notExecuted && (
+                                                <>
+                                                    <label
+                                                        htmlFor={`plan-remarks-${plan.id}`}
+                                                    >
+                                                        Alasan tidak terlaksana
+                                                    </label>
+                                                    <textarea
+                                                        id={`plan-remarks-${plan.id}`}
+                                                        rows={2}
+                                                        maxLength={1000}
+                                                        value={remarks}
+                                                        disabled={busy}
+                                                        onChange={(event) =>
+                                                            setRemarkDrafts(
+                                                                (drafts) => ({
+                                                                    ...drafts,
+                                                                    [plan.id]:
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                }),
+                                                            )
+                                                        }
+                                                    />
+                                                </>
+                                            )}
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost"
+                                                disabled={
+                                                    busy ||
+                                                    !hasChanges ||
+                                                    (notExecuted &&
+                                                        remarks.trim() === '')
+                                                }
+                                                onClick={() =>
+                                                    void updatePlan(
+                                                        () =>
+                                                            trainingProgramService.updatePlan(
+                                                                plan.id,
+                                                                {
+                                                                    month: plan.month,
+                                                                    not_executed:
+                                                                        notExecuted,
+                                                                    remarks,
+                                                                },
+                                                            ),
+                                                        true,
+                                                    )
+                                                }
                                             >
-                                                {label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        type="button"
-                                        className="training-program-danger-link"
-                                        disabled={busy}
-                                        onClick={() =>
-                                            void updatePlan(() =>
-                                                trainingProgramService.removePlan(
-                                                    plan.id,
-                                                ),
-                                            )
-                                        }
-                                    >
-                                        Hapus
-                                    </button>
+                                                Simpan status
+                                            </button>
+                                        </div>
+                                    )}
+                                    {plan.remarks &&
+                                        (!manage || plan.done) && (
+                                            <p className="training-program-remark">
+                                                Alasan sebelumnya: {plan.remarks}
+                                            </p>
+                                        )}
                                 </div>
-                            )}
-                        </li>
-                    ))}
+                                {manage && (
+                                    <div className="training-program-plan-actions">
+                                        <select
+                                            aria-label={`Pindah ${plan.name}`}
+                                            value={plan.month}
+                                            disabled={busy}
+                                            onChange={(event) =>
+                                                void updatePlan(() =>
+                                                    trainingProgramService.updatePlan(
+                                                        plan.id,
+                                                        {
+                                                            month: Number(
+                                                                event.target
+                                                                    .value,
+                                                            ),
+                                                        },
+                                                    ),
+                                                )
+                                            }
+                                        >
+                                            {MONTHS.map((label, index) => (
+                                                <option
+                                                    key={label}
+                                                    value={index + 1}
+                                                >
+                                                    {label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            className="training-program-danger-link"
+                                            disabled={busy}
+                                            onClick={() =>
+                                                void updatePlan(() =>
+                                                    trainingProgramService.removePlan(
+                                                        plan.id,
+                                                    ),
+                                                )
+                                            }
+                                        >
+                                            Hapus
+                                        </button>
+                                    </div>
+                                )}
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
             {manage && (
