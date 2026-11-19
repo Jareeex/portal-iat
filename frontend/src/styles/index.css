@@ -1265,7 +1265,7 @@ input[type='checkbox'] {
     background: #2563eb;
 }
 .training-program-key.pending {
-    background: #facc15;
+    background: #F5F5F5;
 }
 .training-program-key.missed {
     background: #f97316;
@@ -1554,11 +1554,11 @@ input[type='checkbox'] {
     font-weight: 400;
 }
 .training-program-cell.pending {
-    background: #facc15;
+    background: #F5F5F5;
     color: #713f12;
 }
 .training-program-cell.pending:hover {
-    background: #fbbf24;
+    background: #ebebeb;
 }
 .training-program-cell.missed {
     background: #f97316;
@@ -1725,8 +1725,8 @@ input[type='checkbox'] {
     color: #1d4ed8;
 }
 .training-program-status.pending {
-    background: #fef3c7;
-    color: #92400e;
+    background: #F5F5F5;
+    color: #525252;
 }
 .training-program-status.missed {
     background: #ffedd5;

@@ -27,7 +27,7 @@ const OUTCOME_SERIES = [
     {
         key: 'pending',
         label: 'Belum terlaksana',
-        color: '#facc15',
+        color: '#F5F5F5',
         totalKey: 'crew_pending',
     },
     {
