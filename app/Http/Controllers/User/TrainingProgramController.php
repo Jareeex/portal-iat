@@ -55,23 +55,53 @@ class TrainingProgramController extends Controller
         $sumCellsDone = 0;
         $sumCrew = 0;
         $sumCrewDone = 0;
+        $sumCrewNotDone = 0;
+        $sumCrewPending = 0;
+        $sumCrewMissed = 0;
+        $sumCrewNotExecuted = 0;
+        $monthlyCrewOutcomes = array_fill(1, 12, [
+            'completed' => 0,
+            'pending' => 0,
+            'missed' => 0,
+            'not_executed' => 0,
+            'not_completed' => 0,
+        ]);
 
         $programs = TrainingProgram::with('types:id')->orderBy('sort_order')->orderBy('id')->get()
-            ->map(function (TrainingProgram $p) use ($plans, $actuals, &$sumCells, &$sumCellsDone, &$sumCrew, &$sumCrewDone) {
+            ->map(function (TrainingProgram $p) use ($plans, $actuals, $year, $today, &$sumCells, &$sumCellsDone, &$sumCrew, &$sumCrewDone, &$sumCrewNotDone, &$sumCrewPending, &$sumCrewMissed, &$sumCrewNotExecuted, &$monthlyCrewOutcomes) {
                 $acts = $actuals->get($p->id, collect());
                 $attended = $acts->flatMap(fn ($a) => $a->crews->pluck('id'))->unique()->flip();
 
-                $planRows = $plans->get($p->id, collect())->map(fn ($pl) => [
-                    'id' => $pl->id, 'crew_id' => $pl->crew_id, 'name' => $pl->crew->user?->name ?? $pl->crew->name, 'month' => $pl->month,
-                    'due_date' => $pl->due_date?->toDateString(), 'overdue' => $pl->overdue,
-                    'done' => $attended->has($pl->crew_id),   // crew ini ikut realisasi program ini di tahun tsb
-                ])->sortBy('name')->values();
+                $planRows = $plans->get($p->id, collect())->map(function ($pl) use ($attended, $year, $today) {
+                    $done = $attended->has($pl->crew_id);
+                    $monthPassed = $year < $today->year || ($year === $today->year && $pl->month < $today->month);
+                    $status = $done
+                        ? 'completed'
+                        : ($pl->not_executed ? 'not_executed' : ($monthPassed ? 'missed' : 'pending'));
+
+                    return [
+                        'id' => $pl->id, 'crew_id' => $pl->crew_id, 'name' => $pl->crew->user?->name ?? $pl->crew->name, 'month' => $pl->month,
+                        'due_date' => $pl->due_date?->toDateString(), 'overdue' => $pl->overdue,
+                        'not_executed' => $pl->not_executed, 'remarks' => $pl->remarks,
+                        'done' => $done, 'status' => $status,
+                    ];
+                })->sortBy('name')->values();
 
                 $planMonths = $planRows->pluck('month')->unique();
                 $sumCells += $planMonths->count();
                 $sumCellsDone += $planMonths->filter(fn ($m) => $acts->contains('month', $m))->count();
                 $sumCrew += $planRows->count();
                 $sumCrewDone += $planRows->where('done', true)->count();
+                $sumCrewNotDone += $planRows->where('done', false)->count();
+                foreach ($planRows as $planRow) {
+                    $monthlyCrewOutcomes[$planRow['month']][$planRow['status']]++;
+                    if ($planRow['status'] !== 'completed') {
+                        $monthlyCrewOutcomes[$planRow['month']]['not_completed']++;
+                    }
+                }
+                $sumCrewPending += $planRows->where('status', 'pending')->count();
+                $sumCrewMissed += $planRows->where('status', 'missed')->count();
+                $sumCrewNotExecuted += $planRows->where('status', 'not_executed')->count();
 
                 return [
                     'id' => $p->id, 'category' => $p->category, 'name' => $p->name,
@@ -92,7 +122,19 @@ class TrainingProgramController extends Controller
             'now' => ['year' => $today->year, 'month' => $today->month],
             'categories' => TrainingProgram::CATEGORIES,
             'programs' => $programs,
-            'summary' => ['cells' => $sumCells, 'cells_done' => $sumCellsDone, 'crew' => $sumCrew, 'crew_done' => $sumCrewDone],
+            'summary' => [
+                'cells' => $sumCells,
+                'cells_done' => $sumCellsDone,
+                'crew' => $sumCrew,
+                'crew_done' => $sumCrewDone,
+                'crew_not_done' => $sumCrewNotDone,
+                'crew_pending' => $sumCrewPending,
+                'crew_missed' => $sumCrewMissed,
+                'crew_not_executed' => $sumCrewNotExecuted,
+                'monthly_crew' => collect($monthlyCrewOutcomes)
+                    ->map(fn (array $outcomes, int $month) => ['month' => $month, ...$outcomes])
+                    ->values(),
+            ],
             'crews' => $manage
                 ? Crew::with('user:id,name')->orderBy('sort_order')->get()->map(fn ($c) => [
                     'id' => $c->id,
@@ -199,9 +241,13 @@ class TrainingProgramController extends Controller
     public function updatePlan(Request $request, TrainingProgramPlan $plan): JsonResponse
     {
         $this->authorizeManage($request);
-        $plan->update($request->validate(['month' => 'required|integer|min:1|max:12']));
+        $plan->update($request->validate([
+            'month' => 'required|integer|min:1|max:12',
+            'not_executed' => 'sometimes|boolean',
+            'remarks' => 'required_if:not_executed,true|nullable|string|max:1000',
+        ]));
 
-        return response()->json(['message' => 'Plan dipindahkan.']);
+        return response()->json(['message' => 'Status plan diperbarui.']);
     }
 
     public function destroyPlan(Request $request, TrainingProgramPlan $plan): JsonResponse
@@ -236,6 +282,11 @@ class TrainingProgramController extends Controller
             );
             $ids = $data['crew_ids'] ?? [];
             $actual->crews()->sync($ids);
+            TrainingProgramPlan::query()
+                ->where('program_id', $program->id)
+                ->where('year', $year)
+                ->whereIn('crew_id', $ids)
+                ->update(['not_executed' => false]);
 
             if (! $request->boolean('update_records')) {
                 return;

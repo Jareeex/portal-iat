@@ -24,11 +24,16 @@ export const trainingProgramService = {
                 data,
             )
             .then((response) => response.data),
-    updatePlan: (planId: number, month: number) =>
+    updatePlan: (
+        planId: number,
+        data: {
+            month: number;
+            not_executed?: boolean;
+            remarks?: string | null;
+        },
+    ) =>
         api
-            .put<ProgramMessage>(`${BASE}/plans/${planId}`, {
-                month,
-            })
+            .put<ProgramMessage>(`${BASE}/plans/${planId}`, data)
             .then((response) => response.data),
     removePlan: (planId: number) =>
         api

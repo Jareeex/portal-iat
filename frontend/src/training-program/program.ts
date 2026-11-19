@@ -4,6 +4,8 @@ export const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGUST',
 export interface PlanRow {
   id: number; crew_id: number; name: string; month: number;
   due_date: string | null; overdue: boolean; done: boolean;
+  status: 'completed' | 'pending' | 'missed' | 'not_executed';
+  not_executed: boolean; remarks: string | null;
 }
 
 export interface ActualRow {
@@ -21,7 +23,15 @@ export interface ProgramPageProps {
   year: number; years: number[]; now: { year: number; month: number };
   categories: Record<string, string>;
   programs: ProgramRow[];
-  summary: { cells: number; cells_done: number; crew: number; crew_done: number };
+  summary: {
+    cells: number; cells_done: number; crew: number; crew_done: number;
+    crew_not_done: number;
+    crew_pending: number; crew_missed: number; crew_not_executed: number;
+    monthly_crew: {
+      month: number; completed: number; pending: number; missed: number;
+      not_executed: number; not_completed: number;
+    }[];
+  };
   crews: CrewOpt[];
   trainingTypes: { id: number; label: string }[];
   can: { manage: boolean };

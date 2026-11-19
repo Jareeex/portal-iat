@@ -17,6 +17,43 @@ type OpenDialog =
     | { kind: 'program'; programId: number | null }
     | null;
 
+const OUTCOME_SERIES = [
+    {
+        key: 'completed',
+        label: 'Terlaksana',
+        color: '#2563eb',
+        totalKey: 'crew_done',
+    },
+    {
+        key: 'pending',
+        label: 'Belum terlaksana',
+        color: '#facc15',
+        totalKey: 'crew_pending',
+    },
+    {
+        key: 'missed',
+        label: 'Terlewat',
+        color: '#f97316',
+        totalKey: 'crew_missed',
+    },
+    {
+        key: 'not_executed',
+        label: 'Tidak terlaksana',
+        color: '#dc2626',
+        totalKey: 'crew_not_executed',
+    },
+] as const;
+
+const PLAN_OUTCOME_ROWS = [
+    { status: 'pending', label: 'Belum terlaksana', className: 'pending' },
+    { status: 'missed', label: 'Terlewat', className: 'missed' },
+    {
+        status: 'not_executed',
+        label: 'Tidak terlaksana',
+        className: 'not-executed',
+    },
+] as const;
+
 function Stat({
     value,
     total,
@@ -33,6 +70,205 @@ function Stat({
             </strong>
             <span>{label}</span>
         </div>
+    );
+}
+
+function OutcomeCharts({
+    year,
+    summary,
+}: {
+    year: number;
+    summary: ProgramPageProps['summary'];
+}) {
+    const total = OUTCOME_SERIES.reduce(
+        (sum, outcome) => sum + summary[outcome.totalKey],
+        0,
+    );
+    let pieOffset = 0;
+    const pieSegments = OUTCOME_SERIES.map((outcome) => {
+        const value = summary[outcome.totalKey];
+        const percentage = total > 0 ? (value / total) * 100 : 0;
+        const offset = pieOffset;
+        pieOffset += percentage;
+
+        return { ...outcome, value, percentage, offset };
+    });
+    const chartMax = Math.max(
+        1,
+        ...summary.monthly_crew.map(
+            (month) =>
+                month.completed +
+                month.pending +
+                month.missed +
+                month.not_executed,
+        ),
+    );
+    const chartBase = 155;
+    const chartHeight = 125;
+
+    return (
+        <section className="training-program-analytics">
+            <div className="training-program-chart">
+                <h3>Status keseluruhan {year}</h3>
+                <div className="training-program-pie-layout">
+                    <svg
+                        className="training-program-pie"
+                        viewBox="0 0 120 120"
+                        role="img"
+                        aria-label={`Ringkasan ${year}: ${summary.crew_done} terlaksana, ${summary.crew_pending} belum terlaksana, ${summary.crew_missed} terlewat, ${summary.crew_not_executed} tidak terlaksana`}
+                    >
+                        <circle
+                            cx="60"
+                            cy="60"
+                            r="43"
+                            fill="none"
+                            pathLength="100"
+                            stroke="#e5e7eb"
+                            strokeWidth="18"
+                        />
+                        {pieSegments.map(
+                            (segment) =>
+                                segment.value > 0 && (
+                                    <circle
+                                        key={segment.key}
+                                        cx="60"
+                                        cy="60"
+                                        r="43"
+                                        fill="none"
+                                        pathLength="100"
+                                        stroke={segment.color}
+                                        strokeWidth="18"
+                                        strokeDasharray={`${segment.percentage} ${100 - segment.percentage}`}
+                                        strokeDashoffset={-segment.offset}
+                                        transform="rotate(-90 60 60)"
+                                    />
+                                ),
+                        )}
+                        <text
+                            x="60"
+                            y="58"
+                            className="training-program-pie-total"
+                        >
+                            {total}
+                        </text>
+                        <text
+                            x="60"
+                            y="74"
+                            className="training-program-pie-label"
+                        >
+                            crew
+                        </text>
+                    </svg>
+                    <ul className="training-program-chart-legend">
+                        {pieSegments.map((segment) => (
+                            <li key={segment.key}>
+                                <span
+                                    className={`training-program-key ${segment.key === 'completed' ? 'actual' : segment.key.replace('_', '-')}`}
+                                />
+                                {segment.label}
+                                <strong>{segment.value}</strong>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+            <div className="training-program-chart">
+                <h3>Realisasi per bulan {year}</h3>
+                <div className="training-program-bar-wrap">
+                    <svg
+                        viewBox="0 0 720 195"
+                        role="img"
+                        aria-label={`Jumlah crew per status setiap bulan tahun ${year}`}
+                    >
+                        <line
+                            x1="20"
+                            x2="700"
+                            y1={chartBase}
+                            y2={chartBase}
+                            className="training-program-chart-axis"
+                        />
+                        {summary.monthly_crew.map((month, index) => {
+                            const x = 28 + index * 56;
+                            const count = OUTCOME_SERIES.reduce(
+                                (sum, outcome) => sum + month[outcome.key],
+                                0,
+                            );
+                            let stackedHeight = 0;
+                            const segments = OUTCOME_SERIES.map((outcome) => {
+                                const value = month[outcome.key];
+                                const height =
+                                    (value / chartMax) * chartHeight;
+                                const y = chartBase - stackedHeight - height;
+                                stackedHeight += height;
+
+                                return { ...outcome, value, height, y };
+                            });
+
+                            return (
+                                <g key={month.month}>
+                                    <title>
+                                        {MONTHS[month.month - 1]}:{' '}
+                                        {segments
+                                            .map(
+                                                (segment) =>
+                                                    `${segment.value} ${segment.label.toLowerCase()}`,
+                                            )
+                                            .join(', ')}
+                                    </title>
+                                    {segments.map(
+                                        (segment) =>
+                                            segment.value > 0 && (
+                                                <rect
+                                                    key={segment.key}
+                                                    x={x}
+                                                    y={segment.y}
+                                                    width="30"
+                                                    height={segment.height}
+                                                    fill={segment.color}
+                                                />
+                                            ),
+                                    )}
+                                    {count > 0 && (
+                                        <text
+                                            x={x + 15}
+                                            y={Math.max(
+                                                12,
+                                                chartBase - stackedHeight - 5,
+                                            )}
+                                            className="training-program-chart-value"
+                                        >
+                                            {count}
+                                        </text>
+                                    )}
+                                    <text
+                                        x={x + 15}
+                                        y="178"
+                                        className="training-program-chart-month"
+                                    >
+                                        {MONTHS[month.month - 1]}
+                                    </text>
+                                </g>
+                            );
+                        })}
+                    </svg>
+                </div>
+                <ul className="training-program-chart-legend training-program-bar-legend">
+                    {pieSegments.map((segment) => (
+                        <li key={segment.key}>
+                            <span
+                                className={`training-program-key ${segment.key === 'completed' ? 'actual' : segment.key.replace('_', '-')}`}
+                            />
+                            {segment.label}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+            <p className="training-program-chart-note">
+                Status dihitung per crew pada plan tahun terpilih. Plan yang
+                bulannya sudah lewat tetapi belum diikuti dapat dijadwalkan
+                ulang; “Tidak terlaksana” ditandai manual beserta alasannya.
+            </p>
+        </section>
     );
 }
 
@@ -80,9 +316,6 @@ export default function Program() {
         [category, data],
     );
 
-    const isPast = (month: number) =>
-        year < (data?.now.year ?? year) ||
-        (year === data?.now.year && month < (data?.now.month ?? month));
     const currentProgram = (id: number | null) =>
         data?.programs.find((program) => program.id === id) ?? null;
     const close = () => setOpen(null);
@@ -106,8 +339,13 @@ export default function Program() {
         }
     }
 
-    async function onChanged(nextMessage: string): Promise<void> {
-        setOpen(null);
+    async function onChanged(
+        nextMessage: string,
+        closeDialog = true,
+    ): Promise<void> {
+        if (closeDialog) {
+            setOpen(null);
+        }
         setMessage(nextMessage);
         await load();
     }
@@ -208,6 +446,7 @@ export default function Program() {
                     label="crew terplan yang sudah ikut"
                 />
             </div>
+            <OutcomeCharts year={data.year} summary={data.summary} />
 
             <div className="training-program-legend">
                 <div className="training-program-categories">
@@ -239,16 +478,20 @@ export default function Program() {
                 </div>
                 <ul>
                     <li>
-                        <span className="training-program-key plan" />
-                        Plan · terlaksana/terplan
+                        <span className="training-program-key pending" />
+                        Belum terlaksana
                     </li>
                     <li>
                         <span className="training-program-key actual" />
-                        Actual / Implementation
+                        Terlaksana / Actual
                     </li>
                     <li>
-                        <span className="training-program-key overdue" />
-                        Terlambat · bulan lewat, belum ikut
+                        <span className="training-program-key missed" />
+                        Terlewat · bulan plan sudah lewat
+                    </li>
+                    <li>
+                        <span className="training-program-key not-executed" />
+                        Tidak terlaksana · ditandai manual
                     </li>
                 </ul>
             </div>
@@ -287,7 +530,6 @@ export default function Program() {
                                 label={group.label}
                                 programs={group.rows}
                                 canManage={data.can.manage}
-                                isPast={isPast}
                                 onOpenPlan={(programId, month) =>
                                     setOpen({
                                         kind: 'plan',
@@ -316,9 +558,9 @@ export default function Program() {
 
             <p className="training-program-note">
                 Plan disusun dari tanggal pemeriksaan training terakhir dan masa
-                berlaku. Klik sel kuning untuk melihat crew, atau sel biru untuk
-                realisasi. Sel kosong dapat digunakan untuk menambahkan plan atau
-                realisasi.
+                berlaku. Plan yang terlewat dapat dipindah ke bulan lain. Untuk
+                status “Tidak terlaksana”, tandai manual dan isi alasan. Klik
+                sel status untuk melihat crew.
             </p>
 
             {open?.kind === 'plan' && dialogProgram && (
@@ -361,7 +603,6 @@ function ProgramGroup({
     label,
     programs,
     canManage,
-    isPast,
     onOpenPlan,
     onOpenActual,
     onEditProgram,
@@ -369,7 +610,6 @@ function ProgramGroup({
     label: string;
     programs: ProgramRow[];
     canManage: boolean;
-    isPast: (month: number) => boolean;
     onOpenPlan: (programId: number, month: number) => void;
     onOpenActual: (programId: number, month: number) => void;
     onEditProgram: (programId: number) => void;
@@ -387,7 +627,6 @@ function ProgramGroup({
                     program={program}
                     index={index}
                     canManage={canManage}
-                    isPast={isPast}
                     onOpenPlan={onOpenPlan}
                     onOpenActual={onOpenActual}
                     onEditProgram={onEditProgram}
@@ -401,7 +640,6 @@ function ProgramRows({
     program,
     index,
     canManage,
-    isPast,
     onOpenPlan,
     onOpenActual,
     onEditProgram,
@@ -409,7 +647,6 @@ function ProgramRows({
     program: ProgramRow;
     index: number;
     canManage: boolean;
-    isPast: (month: number) => boolean;
     onOpenPlan: (programId: number, month: number) => void;
     onOpenActual: (programId: number, month: number) => void;
     onEditProgram: (programId: number) => void;
@@ -437,8 +674,9 @@ function ProgramRows({
                         (plan) => plan.month === month,
                     );
                     const completed = plans.filter((plan) => plan.done).length;
-                    const late =
-                        isPast(month) && completed < plans.length;
+                    const late = plans.some(
+                        (plan) => plan.status === 'missed',
+                    );
 
                     return (
                         <td key={month}>
@@ -516,6 +754,42 @@ function ProgramRows({
                     );
                 })}
             </tr>
+            {PLAN_OUTCOME_ROWS.map((outcome) => (
+                <tr
+                    key={outcome.status}
+                    className={`training-program-outcome-row ${outcome.className}`}
+                >
+                    <td />
+                    <td>{outcome.label}</td>
+                    {MONTHS.map((_, index) => {
+                        const month = index + 1;
+                        const count = program.plans.filter(
+                            (plan) =>
+                                plan.month === month &&
+                                plan.status === outcome.status,
+                        ).length;
+
+                        return (
+                            <td key={month}>
+                                {count > 0 ? (
+                                    <button
+                                        type="button"
+                                        className={`training-program-cell ${outcome.className}`}
+                                        aria-label={`${outcome.label} ${program.name} ${MONTHS[index]}: ${count} crew`}
+                                        onClick={() =>
+                                            onOpenPlan(program.id, month)
+                                        }
+                                    >
+                                        {count} org
+                                    </button>
+                                ) : (
+                                    <span className="training-program-dash">–</span>
+                                )}
+                            </td>
+                        );
+                    })}
+                </tr>
+            ))}
         </>
     );
 }
