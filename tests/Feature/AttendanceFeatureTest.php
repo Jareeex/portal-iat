@@ -294,6 +294,74 @@ test('HR editors can create, edit, and delete manual attendance records', functi
     $this->deleteJson("/api/hr/attendance/{$masterAttendance->id}")->assertOk();
 });
 
+test('HR editors can filter attendance by employee and inclusive date range and export a PDF', function () {
+    $department = Department::create([
+        'name' => 'Human Resources',
+        'code' => 'HR',
+        'has_full_access' => false,
+    ]);
+    $page = Page::create([
+        'department_id' => $department->id,
+        'key' => 'hr-employees',
+        'name' => 'Employees',
+        'route' => '/hr/employees',
+        'is_active' => true,
+    ]);
+    $editor = User::factory()->create([
+        'department_id' => $department->id,
+        'is_active' => true,
+    ]);
+    $employee = User::factory()->create([
+        'name' => 'Alice Example',
+        'is_active' => true,
+    ]);
+    $otherEmployee = User::factory()->create([
+        'name' => 'Bob Example',
+        'is_active' => true,
+    ]);
+    app(AccessService::class)->sync($editor, [$page->id], [$page->id]);
+    Sanctum::actingAs($editor);
+
+    foreach (['2026-11-01', '2026-11-15', '2026-11-16'] as $date) {
+        $this->postJson('/api/hr/attendance', [
+            'user_id' => $employee->id,
+            'attendance_date' => $date,
+            'clock_in_time' => '08:00',
+            'clock_out_time' => '17:00',
+        ])->assertCreated();
+    }
+    $this->postJson('/api/hr/attendance', [
+        'user_id' => $otherEmployee->id,
+        'attendance_date' => '2026-11-10',
+        'clock_in_time' => '09:00',
+        'clock_out_time' => '18:00',
+    ])->assertCreated();
+
+    $this->getJson('/api/hr/attendance/report?from=2026-11-01&to=2026-11-15&name=Alice')
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.0.employee.name', 'Alice Example')
+        ->assertJsonPath('data.0.attendance_date', '2026-11-01')
+        ->assertJsonPath('data.1.attendance_date', '2026-11-15');
+
+    $this->get('/api/hr/attendance/report/pdf?from=2026-11-01&to=2026-11-15&name=Alice')
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf')
+        ->assertHeader(
+            'content-disposition',
+            'attachment; filename=attendance-report-2026-11-01-2026-11-15.pdf',
+        );
+
+    $this->getJson('/api/hr/attendance/report?from=2026-11-15&to=2026-11-01')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('to');
+
+    $viewer = User::factory()->create(['is_active' => true]);
+    Sanctum::actingAs($viewer);
+    $this->getJson('/api/hr/attendance/report?from=2026-11-01&to=2026-11-15')
+        ->assertForbidden();
+});
+
 test('master can enable or disable On Leave for an individual account', function () {
     $master = User::factory()->create([
         'role' => User::ROLE_MASTER,

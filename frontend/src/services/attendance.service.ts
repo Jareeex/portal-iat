@@ -20,10 +20,31 @@ export interface AttendanceListParams {
     page?: number;
 }
 
+export interface AttendanceReportFilters {
+    from: string;
+    to: string;
+    name?: string;
+}
+
 export const attendanceService = {
     list: (params: AttendanceListParams) =>
         api
             .get<AttendanceIndex>('/hr/attendance', { params })
+            .then((response) => response.data),
+
+    report: (params: AttendanceReportFilters) =>
+        api
+            .get<{ data: AttendanceRecord[] }>('/hr/attendance/report', {
+                params,
+            })
+            .then((response) => response.data.data),
+
+    reportPdf: (params: AttendanceReportFilters) =>
+        api
+            .get<Blob>('/hr/attendance/report/pdf', {
+                params,
+                responseType: 'blob',
+            })
             .then((response) => response.data),
 
     clockIn: (photo: File, location: AttendanceLocationPayload) => {

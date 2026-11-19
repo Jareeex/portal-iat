@@ -15,6 +15,12 @@ Route::middleware(config('hr.route.middleware'))
     ->group(function () {
         Route::get('attendance', [AttendanceController::class, 'index'])
             ->name('attendance.index');
+        Route::get('attendance/report', [AttendanceController::class, 'report'])
+            ->middleware('page.access:hr-employees,edit')
+            ->name('attendance.report');
+        Route::get('attendance/report/pdf', [AttendanceController::class, 'reportPdf'])
+            ->middleware('page.access:hr-employees,edit')
+            ->name('attendance.report.pdf');
         Route::post('attendance', [AttendanceController::class, 'storeManual'])
             ->middleware('page.access:hr-employees,edit')
             ->name('attendance.store');

@@ -1,11 +1,21 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import axios from 'axios';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type FormEvent,
+} from 'react';
 import { Alert, Loader } from '../../components/common/Feedback';
 import { Field } from '../../components/common/Field';
 import { Modal } from '../../components/common/Modal';
 import { DataTable, type Column } from '../../components/tables/DataTable';
 import { Pagination } from '../../components/tables/Pagination';
 import { usePermission } from '../../hooks/usePermission';
-import { attendanceService } from '../../services/attendance.service';
+import {
+    attendanceService,
+    type AttendanceReportFilters,
+} from '../../services/attendance.service';
 import { errorMessage } from '../../utils/error';
 import type {
     AttendanceGeofence,
@@ -25,6 +35,10 @@ function currentDateInJakarta(): string {
         month: '2-digit',
         day: '2-digit',
     }).format(new Date());
+}
+
+function firstDayOfCurrentMonthInJakarta(): string {
+    return `${currentDateInJakarta().slice(0, 7)}-01`;
 }
 
 function formatTime(value: string | null, timezone: string): string {
@@ -71,6 +85,77 @@ function formatOffsiteReason(
     return details ? `${label}: ${details}` : label;
 }
 
+function formatAttendanceLocation(
+    distance: number | null,
+    isOffsite: boolean,
+    reason: string | null,
+    details: string | null,
+    labels: Record<string, string>,
+): string {
+    const location =
+        distance === null
+            ? 'Lokasi tidak tercatat'
+            : `${distance} m dari lokasi kerja`;
+    const offsiteReason = formatOffsiteReason(reason, details, labels);
+
+    return isOffsite
+        ? ['On Leave', offsiteReason, location].filter(Boolean).join(' · ')
+        : location;
+}
+
+function downloadPdf(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function pdfErrorMessage(error: unknown): Promise<string> {
+    if (
+        axios.isAxiosError(error) &&
+        error.response?.data instanceof Blob
+    ) {
+        const responseBody = await error.response.data.text();
+        try {
+            const payload: unknown = JSON.parse(responseBody);
+            if (
+                typeof payload === 'object' &&
+                payload !== null &&
+                'message' in payload &&
+                typeof payload.message === 'string'
+            ) {
+                return payload.message;
+            }
+            if (
+                typeof payload === 'object' &&
+                payload !== null &&
+                'errors' in payload &&
+                typeof payload.errors === 'object' &&
+                payload.errors !== null
+            ) {
+                const firstError = Object.values(payload.errors).find(
+                    (messages): messages is string[] =>
+                        Array.isArray(messages) &&
+                        typeof messages[0] === 'string',
+                )?.[0];
+                if (firstError) return firstError;
+            }
+        } catch (parseError) {
+            if (!(parseError instanceof SyntaxError)) {
+                throw parseError;
+            }
+        }
+
+        return `Export PDF gagal (HTTP ${error.response.status}).`;
+    }
+
+    return errorMessage(error);
+}
+
 export default function AttendancePage() {
     const { isMaster, canEdit } = usePermission();
     const canManage = isMaster || canEdit('hr-employees');
@@ -87,6 +172,15 @@ export default function AttendancePage() {
     const [actionSuccess, setActionSuccess] = useState<string | null>(null);
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [users, setUsers] = useState<AttendanceUserOption[]>([]);
+    const [reportFrom, setReportFrom] = useState(firstDayOfCurrentMonthInJakarta);
+    const [reportTo, setReportTo] = useState(currentDateInJakarta);
+    const [reportName, setReportName] = useState('');
+    const [reportRows, setReportRows] = useState<AttendanceRecord[]>([]);
+    const [appliedReport, setAppliedReport] =
+        useState<AttendanceReportFilters | null>(null);
+    const [reportLoading, setReportLoading] = useState(false);
+    const [reportError, setReportError] = useState<string | null>(null);
+    const [pdfExporting, setPdfExporting] = useState(false);
     const [lastPage, setLastPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -283,6 +377,63 @@ export default function AttendancePage() {
         }
     }
 
+    async function submitReport(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        const filters: AttendanceReportFilters = {
+            from: reportFrom,
+            to: reportTo,
+            ...(reportName.trim() ? { name: reportName.trim() } : {}),
+        };
+
+        setReportLoading(true);
+        setReportError(null);
+        try {
+            const result = await attendanceService.report(filters);
+            setReportRows(result);
+            setAppliedReport(filters);
+        } catch (loadError) {
+            setReportError(errorMessage(loadError));
+        } finally {
+            setReportLoading(false);
+        }
+    }
+
+    async function exportReportPdf() {
+        if (!appliedReport) return;
+
+        setPdfExporting(true);
+        setReportError(null);
+        try {
+            const pdf = await attendanceService.reportPdf(appliedReport);
+            downloadPdf(
+                pdf,
+                `attendance-${appliedReport.from}-${appliedReport.to}.pdf`,
+            );
+        } catch (exportError) {
+            setReportError(await pdfErrorMessage(exportError));
+        } finally {
+            setPdfExporting(false);
+        }
+    }
+
+    const reportGroups = useMemo(() => {
+        const grouped = new Map<number, AttendanceRecord[]>();
+        reportRows.forEach((record) => {
+            const employeeRecords = grouped.get(record.employee.id) ?? [];
+            employeeRecords.push(record);
+            grouped.set(record.employee.id, employeeRecords);
+        });
+
+        return Array.from(grouped.values())
+            .map((employeeRecords) => ({
+                employee: employeeRecords[0].employee,
+                records: employeeRecords,
+            }))
+            .sort((left, right) =>
+                left.employee.name.localeCompare(right.employee.name, 'id'),
+            );
+    }, [reportRows]);
+
     const columns: Column<AttendanceRecord>[] = [
         {
             header: 'Karyawan',
@@ -402,6 +553,50 @@ export default function AttendancePage() {
                   } satisfies Column<AttendanceRecord>,
               ]
             : []),
+    ];
+
+    const reportColumns: Column<AttendanceRecord>[] = [
+        {
+            header: 'Tanggal',
+            render: (record) =>
+                formatAttendanceDate(record.attendance_date, timezone),
+        },
+        {
+            header: 'Clock-in',
+            render: (record) => (
+                <div>
+                    <strong>{formatTime(record.clock_in_at, timezone)}</strong>
+                    <div className="muted">
+                        {formatAttendanceLocation(
+                            record.clock_in_distance_meters,
+                            record.clock_in_is_offsite,
+                            record.clock_in_reason,
+                            record.clock_in_reason_details,
+                            geofence?.offsite_reasons ?? {},
+                        )}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            header: 'Clock-out',
+            render: (record) => (
+                <div>
+                    <strong>{formatTime(record.clock_out_at, timezone)}</strong>
+                    {record.clock_out_at && (
+                        <div className="muted">
+                            {formatAttendanceLocation(
+                                record.clock_out_distance_meters,
+                                record.clock_out_is_offsite,
+                                record.clock_out_reason,
+                                record.clock_out_reason_details,
+                                geofence?.offsite_reasons ?? {},
+                            )}
+                        </div>
+                    )}
+                </div>
+            ),
+        },
     ];
 
     return (
@@ -539,6 +734,135 @@ export default function AttendancePage() {
                     </>
                 )}
             </section>
+
+            {canManage && (
+                <section className="panel attendance-report">
+                    <div className="page-head">
+                        <h3>Laporan Attendance</h3>
+                        <p className="muted">
+                            Filter nama dan rentang tanggal untuk melihat catatan
+                            clock-in/out per karyawan, lalu unduh sebagai PDF.
+                        </p>
+                    </div>
+
+                    {reportError && <Alert>{reportError}</Alert>}
+
+                    <form
+                        className="toolbar attendance-toolbar"
+                        onSubmit={submitReport}
+                    >
+                        <Field label="Nama karyawan">
+                            <input
+                                type="search"
+                                placeholder="Semua karyawan"
+                                value={reportName}
+                                onChange={(event) =>
+                                    setReportName(event.target.value)
+                                }
+                            />
+                        </Field>
+                        <Field label="Dari tanggal">
+                            <input
+                                type="date"
+                                value={reportFrom}
+                                onChange={(event) =>
+                                    setReportFrom(event.target.value)
+                                }
+                                required
+                            />
+                        </Field>
+                        <Field label="Sampai tanggal">
+                            <input
+                                type="date"
+                                min={reportFrom}
+                                value={reportTo}
+                                onChange={(event) =>
+                                    setReportTo(event.target.value)
+                                }
+                                required
+                            />
+                        </Field>
+                        <button
+                            type="submit"
+                            className="btn btn-primary"
+                            disabled={reportLoading}
+                        >
+                            {reportLoading ? 'Memuat...' : 'Tampilkan laporan'}
+                        </button>
+                    </form>
+
+                    {reportLoading ? (
+                        <Loader />
+                    ) : (
+                        appliedReport && (
+                            <>
+                                <div className="page-head page-head-row">
+                                    <p className="muted">
+                                        Periode{' '}
+                                        {formatAttendanceDate(
+                                            appliedReport.from,
+                                            timezone,
+                                        )}{' '}
+                                        –{' '}
+                                        {formatAttendanceDate(
+                                            appliedReport.to,
+                                            timezone,
+                                        )}
+                                        {' · '}
+                                        {appliedReport.name || 'Semua karyawan'}
+                                        {' · '}
+                                        {reportRows.length} catatan
+                                    </p>
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary"
+                                        onClick={() => void exportReportPdf()}
+                                        disabled={pdfExporting}
+                                    >
+                                        {pdfExporting
+                                            ? 'Membuat PDF...'
+                                            : 'Export PDF'}
+                                    </button>
+                                </div>
+                                {reportGroups.length === 0 ? (
+                                    <p className="muted">
+                                        Tidak ada data attendance pada filter tersebut.
+                                    </p>
+                                ) : (
+                                    <div className="attendance-report-groups">
+                                        {reportGroups.map((group) => (
+                                            <section
+                                                className="attendance-report-group"
+                                                key={group.employee.id}
+                                            >
+                                                <div>
+                                                    <strong>
+                                                        {group.employee.name}
+                                                    </strong>
+                                                    <p className="muted">
+                                                        {group.employee.employee_number ||
+                                                            'No. pegawai belum diisi'}
+                                                        {group.employee.department
+                                                            ? ` · ${group.employee.department}`
+                                                            : ''}
+                                                        {' · '}
+                                                        {group.records.length} catatan
+                                                    </p>
+                                                </div>
+                                                <DataTable
+                                                    columns={reportColumns}
+                                                    rows={group.records}
+                                                    rowKey={(record) => record.id}
+                                                />
+                                            </section>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )
+                    )}
+                </section>
+            )}
 
             {manualOpen && (
                 <Modal
