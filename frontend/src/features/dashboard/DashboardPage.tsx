@@ -2,26 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { portalService } from '../../services/portal.service';
 import { errorMessage } from '../../utils/error';
-import { Alert, EmptyState, Loader } from '../../components/common/Feedback';
+import { Alert, Loader } from '../../components/common/Feedback';
 import { useAuth } from '../../hooks/useAuth';
 import type { PortalPage } from '../../types';
 import { NavIcon } from '../../components/common/NavIcon';
-
-function formatDate(value: string): string {
-    return new Intl.DateTimeFormat('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    }).format(new Date(`${value}T00:00:00`));
-}
 
 export default function DashboardPage() {
     const { refresh } = useAuth();
     const [greeting, setGreeting] = useState('');
     const [pages, setPages] = useState<PortalPage[]>([]);
-    const [expiredTrainings, setExpiredTrainings] = useState<
-        { name: string; next_check: string }[]
-    >([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -30,8 +19,14 @@ export default function DashboardPage() {
             .dashboard()
             .then((d) => {
                 setGreeting(d.greeting);
-                setPages(d.pages.filter((p) => p.route !== '/dashboard'));
-                setExpiredTrainings(d.expired_trainings);
+                setPages(
+                    d.pages.filter(
+                        (p) =>
+                            p.route !== '/dashboard' &&
+                            p.route !== '/attendance' &&
+                            p.route !== '/it/tickets',
+                    ),
+                );
                 void refresh().catch((e) => setError(errorMessage(e)));
             })
             .catch((e) => setError(errorMessage(e)))
@@ -75,55 +70,51 @@ export default function DashboardPage() {
 
             {error && <Alert>{error}</Alert>}
 
-            {expiredTrainings.length > 0 && (
-                <Alert>
-                    <strong>Pelatihan kedaluwarsa</strong>
-                    <ul>
-                        {expiredTrainings.map((training, index) => (
-                            <li
-                                key={`${training.name}-${training.next_check}-${index}`}
-                            >
-                                {training.name} — expired{' '}
-                                {formatDate(training.next_check)}
-                            </li>
-                        ))}
-                    </ul>
-                </Alert>
-            )}
-
-            {pages.length === 0 && !error ? (
-                <EmptyState>
-                    Belum ada fitur untukmu. Hubungi master untuk minta akses.
-                </EmptyState>
-            ) : (
-                <div className="card-grid">
-                    {pages.map((p) => (
-                        <Link
-                            key={p.id}
-                            to={
-                                p.name.trim().toLowerCase() === 'leave' ||
-                                p.key.trim().toLowerCase() === 'leave' ||
-                                p.route.trim().toLowerCase() === '/leave'
-                                    ? '/leave-request'
-                                    : p.route
-                            }
-                            className="feature-card"
-                        >
-                            <span className="feature-icon">
-                                <NavIcon name={p.icon ?? p.key} />
-                            </span>
-                            <strong>
-                                {p.name.trim().toLowerCase() === 'leave'
-                                    ? 'Leave Request'
-                                    : p.name}
-                            </strong>
-                            <span className="muted">
-                                {p.description ?? p.route}
-                            </span>
-                        </Link>
-                    ))}
-                </div>
-            )}
+            <div className="card-grid">
+                <Link to="/it/tickets" className="feature-card">
+                    <span className="feature-icon">
+                        <NavIcon name="ticket" />
+                    </span>
+                    <strong>IT Tickets</strong>
+                    <span className="muted">
+                        Buat dan pantau permintaan dukungan IT.
+                    </span>
+                </Link>
+                <Link to="/attendance" className="feature-card">
+                    <span className="feature-icon">
+                        <NavIcon name="clock" />
+                    </span>
+                    <strong>Attendances</strong>
+                    <span className="muted">
+                        Lihat riwayat kehadiran Anda.
+                    </span>
+                </Link>
+                {pages.map((p) => (
+                    <Link
+                        key={p.id}
+                        to={
+                            p.name.trim().toLowerCase() === 'leave' ||
+                            p.key.trim().toLowerCase() === 'leave' ||
+                            p.route.trim().toLowerCase() === '/leave'
+                                ? '/leave-request'
+                                : p.route
+                        }
+                        className="feature-card"
+                    >
+                        <span className="feature-icon">
+                            <NavIcon name={p.icon ?? p.key} />
+                        </span>
+                        <strong>
+                            {p.name.trim().toLowerCase() === 'leave'
+                                ? 'Leave Request'
+                                : p.name}
+                        </strong>
+                        <span className="muted">
+                            {p.description ?? p.route}
+                        </span>
+                    </Link>
+                ))}
+            </div>
         </div>
     );
 }

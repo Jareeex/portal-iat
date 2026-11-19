@@ -15,6 +15,9 @@ Route::middleware(config('hr.route.middleware'))
     ->group(function () {
         Route::get('attendance', [AttendanceController::class, 'index'])
             ->name('attendance.index');
+        Route::post('attendance', [AttendanceController::class, 'storeManual'])
+            ->middleware('page.access:hr-employees,edit')
+            ->name('attendance.store');
         Route::put('attendance/settings', [AttendanceController::class, 'updateSettings'])
             ->middleware('page.access:hr-employees,edit')
             ->name('attendance.settings.update');
@@ -28,6 +31,9 @@ Route::middleware(config('hr.route.middleware'))
         Route::put('attendance/{attendance}', [AttendanceController::class, 'update'])
             ->middleware('page.access:hr-employees,edit')
             ->name('attendance.update');
+        Route::delete('attendance/{attendance}', [AttendanceController::class, 'destroy'])
+            ->middleware('page.access:hr-employees,edit')
+            ->name('attendance.destroy');
 
         Route::get('employees', [EmployeeController::class, 'index'])
             ->middleware('page.access:hr-employees')

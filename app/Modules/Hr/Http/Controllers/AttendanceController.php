@@ -4,6 +4,7 @@ namespace App\Modules\Hr\Http\Controllers;
 
 use App\Models\User;
 use App\Modules\Hr\Http\Requests\StoreAttendancePhotoRequest;
+use App\Modules\Hr\Http\Requests\StoreManualAttendanceRequest;
 use App\Modules\Hr\Http\Requests\UpdateAttendanceRequest;
 use App\Modules\Hr\Http\Requests\UpdateAttendanceSettingsRequest;
 use App\Modules\Hr\Models\Attendance;
@@ -86,7 +87,66 @@ class AttendanceController extends Controller
                 'total' => $records->total(),
                 'per_page' => $records->perPage(),
             ],
+            'users' => $canManage
+                ? User::query()
+                    ->whereHas('employee')
+                    ->with('employee:id,user_id,employee_number')
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (User $option): array => [
+                        'id' => $option->id,
+                        'name' => $option->name,
+                        'employee_number' => $option->employee?->employee_number,
+                    ])
+                    ->values()
+                : [],
         ]);
+    }
+
+    public function storeManual(StoreManualAttendanceRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $selectedUser = User::query()->findOrFail($data['user_id']);
+        $employee = Employee::forUser($selectedUser);
+        $date = $data['attendance_date'];
+        $timezone = (string) config('hr.attendance.timezone');
+        $clockIn = Carbon::parse("{$date} {$data['clock_in_time']}", $timezone)->utc();
+        $clockOut = isset($data['clock_out_time']) && $data['clock_out_time'] !== ''
+            ? Carbon::parse("{$date} {$data['clock_out_time']}", $timezone)->utc()
+            : null;
+        $editorId = $request->user()->getAuthIdentifier();
+
+        $attendance = DB::transaction(function () use (
+            $employee,
+            $date,
+            $clockIn,
+            $clockOut,
+            $editorId,
+        ): Attendance {
+            Employee::query()->whereKey($employee->id)->lockForUpdate()->firstOrFail();
+
+            if (Attendance::query()
+                ->where('employee_id', $employee->id)
+                ->whereDate('attendance_date', $date)
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'attendance_date' => 'Karyawan sudah memiliki absensi pada tanggal tersebut.',
+                ]);
+            }
+
+            return Attendance::query()->create([
+                'employee_id' => $employee->id,
+                'attendance_date' => $date,
+                'clock_in_at' => $clockIn,
+                'clock_in_photo_path' => null,
+                'clock_in_is_offsite' => false,
+                'clock_out_at' => $clockOut,
+                'clock_out_is_offsite' => false,
+                'edited_by' => $editorId,
+            ])->load(['employee.user.department']);
+        });
+
+        return response()->json(['data' => $this->attendanceData($attendance)], 201);
     }
 
     public function updateSettings(UpdateAttendanceSettingsRequest $request): JsonResponse
@@ -236,20 +296,72 @@ class AttendanceController extends Controller
     public function update(UpdateAttendanceRequest $request, Attendance $attendance): JsonResponse
     {
         $data = $request->validated();
-        $date = $attendance->attendance_date->toDateString();
+        $selectedUser = User::query()->findOrFail($data['user_id']);
+        $employee = Employee::forUser($selectedUser);
+        $date = $data['attendance_date'];
         $timezone = (string) config('hr.attendance.timezone');
+        $clockIn = Carbon::parse("{$date} {$data['clock_in_time']}", $timezone)->utc();
+        $clockOut = isset($data['clock_out_time']) && $data['clock_out_time'] !== ''
+            ? Carbon::parse("{$date} {$data['clock_out_time']}", $timezone)->utc()
+            : null;
+        $editorId = $request->user()->getAuthIdentifier();
 
-        $attendance->forceFill([
-            'clock_in_at' => Carbon::parse("{$date} {$data['clock_in_time']}", $timezone)->utc(),
-            'clock_out_at' => isset($data['clock_out_time']) && $data['clock_out_time'] !== ''
-                ? Carbon::parse("{$date} {$data['clock_out_time']}", $timezone)->utc()
-                : null,
-            'edited_by' => $request->user()->getAuthIdentifier(),
-        ])->save();
+        $attendance = DB::transaction(function () use (
+            $attendance,
+            $employee,
+            $date,
+            $clockIn,
+            $clockOut,
+            $editorId,
+        ): Attendance {
+            $attendance = Attendance::query()->whereKey($attendance->id)->lockForUpdate()->firstOrFail();
+            Employee::query()->whereKey($employee->id)->lockForUpdate()->firstOrFail();
+
+            $duplicate = Attendance::query()
+                ->where('employee_id', $employee->id)
+                ->whereDate('attendance_date', $date)
+                ->where('id', '<>', $attendance->id)
+                ->exists();
+
+            if ($duplicate) {
+                throw ValidationException::withMessages([
+                    'attendance_date' => 'Karyawan sudah memiliki absensi pada tanggal tersebut.',
+                ]);
+            }
+
+            $attendance->forceFill([
+                'employee_id' => $employee->id,
+                'attendance_date' => $date,
+                'clock_in_at' => $clockIn,
+                'clock_out_at' => $clockOut,
+                'edited_by' => $editorId,
+            ])->save();
+
+            return $attendance->load(['employee.user.department']);
+        });
 
         return response()->json([
-            'data' => $this->attendanceData($attendance->fresh(['employee.user.department'])),
+            'data' => $this->attendanceData($attendance),
         ]);
+    }
+
+    public function destroy(Request $request, Attendance $attendance): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User && Gate::allows('hr.manage'), 403);
+
+        $paths = array_values(array_filter([
+            $attendance->clock_in_photo_path,
+            $attendance->clock_out_photo_path,
+        ], fn (?string $path): bool => $path !== null && $path !== ''));
+
+        if ($paths !== [] && ! Storage::disk(config('hr.attendance.disk'))->delete($paths)) {
+            throw new RuntimeException('Foto attendance gagal dihapus.');
+        }
+
+        $attendance->delete();
+
+        return response()->json(['message' => 'Data attendance berhasil dihapus.']);
     }
 
     public function photo(Request $request, Attendance $attendance, string $type): StreamedResponse
@@ -294,7 +406,7 @@ class AttendanceController extends Controller
      *     clock_out_is_offsite: bool,
      *     clock_out_reason: string|null,
      *     clock_out_reason_details: string|null,
-     *     employee: array{id: int, name: string, employee_number: string|null, department: string|null}
+     *     employee: array{id: int, user_id: int|null, name: string, employee_number: string|null, department: string|null}
      * }
      */
     private function attendanceData(Attendance $attendance): array
@@ -306,7 +418,8 @@ class AttendanceController extends Controller
             'attendance_date' => $attendance->attendance_date->toDateString(),
             'clock_in_at' => $attendance->clock_in_at->toIso8601String(),
             'clock_out_at' => $attendance->clock_out_at?->toIso8601String(),
-            'clock_in_photo_available' => true,
+            'clock_in_photo_available' => $attendance->clock_in_photo_path !== null
+                && $attendance->clock_in_photo_path !== '',
             'clock_out_photo_available' => $attendance->clock_out_photo_path !== null,
             'clock_in_latitude' => $attendance->clock_in_latitude,
             'clock_in_longitude' => $attendance->clock_in_longitude,
@@ -322,6 +435,7 @@ class AttendanceController extends Controller
             'clock_out_reason_details' => $attendance->clock_out_reason_details,
             'employee' => [
                 'id' => $employee->id,
+                'user_id' => $employee->user_id,
                 'name' => $employee->user_id === null
                     ? ($employee->name ?? 'Employee')
                     : $employee->user->name,

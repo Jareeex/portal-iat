@@ -57,6 +57,11 @@ textarea {
     display: block;
     padding: 3px 0;
 }
+.attendance-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 .attendance-photo-preview {
     display: block;
     width: min(100%, 560px);
