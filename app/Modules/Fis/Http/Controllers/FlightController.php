@@ -16,6 +16,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class FlightController
@@ -118,7 +119,11 @@ class FlightController
             [0.2, 0.2, 0.2],
         );
 
-        return $pdf->download('flight-information-'.$flight->flight_no.'-'.now()->format('Ymd').'.pdf');
+        $safeFlightNumber = Str::slug(
+            str_replace(['/', '\\'], '-', $flight->flight_no),
+        ) ?: (string) $flight->getKey();
+
+        return $pdf->download('flight-information-'.$safeFlightNumber.'-'.now()->format('Ymd').'.pdf');
     }
 
     public function store(FlightRequest $request): JsonResponse

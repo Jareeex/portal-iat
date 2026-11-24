@@ -94,6 +94,31 @@ test('master can create and update flight information', function () {
     expect(Flight::find($created['id']))->toBeNull();
 });
 
+test('flight report download filename removes path separators from flight number', function () {
+    createFisPage();
+    $aircraft = createFisAircraft();
+    $master = User::factory()->create([
+        'role' => User::ROLE_MASTER,
+        'is_active' => true,
+    ]);
+    Sanctum::actingAs($master);
+
+    $flight = $this->postJson('/api/fis/flights', [
+        ...fisFlightPayload($aircraft),
+        'flight_no' => 'IAT/2026\\01',
+    ])->assertCreated()->json('data');
+
+    $report = $this->get("/api/fis/flights/{$flight['id']}/report")
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+
+    $contentDisposition = $report->headers->get('content-disposition');
+    expect($contentDisposition)
+        ->toContain('flight-information-iat-2026-01-')
+        ->not->toContain('/')
+        ->not->toContain('\\');
+});
+
 test('master can update the FIS PDF header and restore the default logo', function () {
     Storage::fake('local');
     createFisPage();
