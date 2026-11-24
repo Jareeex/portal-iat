@@ -2269,6 +2269,58 @@ input[type='checkbox'] {
     padding: 20px;
     box-shadow: var(--shadow);
 }
+.fis-report-settings {
+    max-width: 720px;
+}
+.fis-report-settings textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+}
+.fis-report-logo-preview {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.fis-report-logo-preview img {
+    max-width: 100%;
+    max-height: 120px;
+    object-fit: contain;
+}
+.fis-aircraft-image-settings {
+    max-width: 900px;
+    margin-top: 20px;
+}
+.fis-aircraft-image-settings h3 {
+    margin-bottom: 4px;
+}
+.fis-aircraft-image-list {
+    display: grid;
+    gap: 12px;
+}
+.fis-aircraft-image-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) minmax(220px, 1.5fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+.fis-aircraft-image-row .field {
+    margin-bottom: 0;
+}
+@media (max-width: 700px) {
+    .fis-aircraft-image-row {
+        grid-template-columns: 1fr;
+    }
+}
 .profile-panel {
     max-width: 720px;
     margin-bottom: 20px;

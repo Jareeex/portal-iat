@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $registration
  * @property string $aircraft_type
  * @property int $seat_capacity
+ * @property string|null $report_image_path
  */
 class AircraftRegistration extends Model
 {

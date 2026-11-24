@@ -13,6 +13,11 @@ const items: NavItem[] = [
         label: 'Training Reminders',
         icon: 'calendar-days',
     },
+    {
+        to: '/master/fis-report-settings',
+        label: 'Header Report FIS',
+        icon: 'file-text',
+    },
 ];
 
 export default function MasterLayout() {

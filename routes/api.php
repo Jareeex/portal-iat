@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Master\AccessController;
 use App\Http\Controllers\Master\DepartmentController;
+use App\Http\Controllers\Master\FisReportSettingsController;
 use App\Http\Controllers\Master\PageController;
 use App\Http\Controllers\Master\TrainingReminderController;
 use App\Http\Controllers\Master\UserController;
@@ -29,6 +30,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ---------- Master: kelola user, halaman/fitur, dan hak akses ----------
     Route::prefix('master')->middleware('role.master')->group(function () {
+        Route::get('fis-report-settings', [FisReportSettingsController::class, 'show']);
+        Route::post('fis-report-settings', [FisReportSettingsController::class, 'update']);
+        Route::get('fis-report-settings/logo', [FisReportSettingsController::class, 'logo']);
+        Route::get('fis-report-settings/aircraft', [FisReportSettingsController::class, 'aircraft']);
+        Route::post(
+            'fis-report-settings/aircraft/{aircraft}/image',
+            [FisReportSettingsController::class, 'updateAircraftImage'],
+        )->whereNumber('aircraft');
+        Route::delete(
+            'fis-report-settings/aircraft/{aircraft}/image',
+            [FisReportSettingsController::class, 'removeAircraftImage'],
+        )->whereNumber('aircraft');
         Route::apiResource('departments', DepartmentController::class);
         Route::apiResource('users', UserController::class);
         Route::patch('users/{user}/on-leave', [UserController::class, 'updateOnLeave']);
