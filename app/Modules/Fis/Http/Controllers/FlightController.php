@@ -15,6 +15,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 class FlightController
@@ -60,6 +61,8 @@ class FlightController
     public function report(Flight $flight): Response
     {
         $flight->load('aircraftRegistration');
+        $reportSettings = DB::table('fis_report_settings')->where('id', 1)->first();
+        $customLogoPath = $reportSettings->logo_path ?? null;
         $codes = collect($flight->schedules)
             ->flatMap(fn (array $leg): array => [$leg['from'] ?? '', $leg['to'] ?? ''])
             ->merge(collect($flight->handling_agents ?? [])->pluck('location'))
@@ -85,19 +88,25 @@ class FlightController
                 });
         }
 
-        $helicopterImage = match (strtoupper($flight->aircraftRegistration->registration)) {
+        $defaultAircraftImage = match (strtoupper($flight->aircraftRegistration->registration)) {
             'PK-TPE' => 'tpe.svg',
             'PK-TFS' => 'tfs.svg',
             'PK-TPG' => 'tpg.svg',
             default => null,
         };
+        $aircraftImage = $flight->aircraftRegistration->report_image_path
+            ? $this->storedImageDataUri($flight->aircraftRegistration->report_image_path)
+            : ($defaultAircraftImage ? $this->svgDataUri($defaultAircraftImage) : null);
 
         $pdf = Pdf::loadView('fis::pdf.flight-report', [
             'flight' => $flight,
             'airports' => $airports,
             'generatedAt' => now(),
-            'helicopterImage' => $helicopterImage ? $this->svgDataUri($helicopterImage) : null,
-            'iatLogo' => $this->svgDataUri('logo-iat.svg'),
+            'helicopterImage' => $aircraftImage,
+            'headerTitle' => $reportSettings->header_title ?? "Flight\nInformation\nSheet",
+            'iatLogo' => $customLogoPath
+                ? $this->storedImageDataUri($customLogoPath)
+                : $this->svgDataUri('logo-iat.svg'),
         ])->setPaper('a4', 'portrait');
 
         $pdf->getDomPDF()->getCanvas()->page_text(
@@ -172,5 +181,25 @@ class FlightController
         }
 
         return 'data:image/svg+xml;base64,'.base64_encode($contents);
+    }
+
+    private function storedImageDataUri(string $path): string
+    {
+        $disk = Storage::disk('local');
+        if (! $disk->exists($path)) {
+            throw new RuntimeException('Logo report FIS tidak ditemukan.');
+        }
+
+        $mimeType = $disk->mimeType($path);
+        if (! in_array($mimeType, ['image/jpeg', 'image/png', 'image/svg+xml'], true)) {
+            throw new RuntimeException('Format logo report FIS tidak didukung.');
+        }
+
+        $contents = $disk->get($path);
+        if ($contents === '') {
+            throw new RuntimeException('Logo report FIS kosong.');
+        }
+
+        return 'data:'.$mimeType.';base64,'.base64_encode($contents);
     }
 }

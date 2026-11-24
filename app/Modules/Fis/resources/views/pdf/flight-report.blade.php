@@ -33,6 +33,8 @@
             font-size: 18px;
             font-weight: bold;
             line-height: 1.2;
+            white-space: pre-line;
+            overflow-wrap: break-word;
         }
 
         .helicopter {
@@ -62,7 +64,6 @@
         .logo img {
             max-width: 100%;
             max-height: 48px;
-            background: #fff;
         }
 
         .logo-placeholder {
@@ -169,7 +170,7 @@
 <body>
     <table class="hero">
         <tr>
-            <td class="hero-title">Flight<br>Information<br>Sheet</td>
+            <td class="hero-title">{{ $headerTitle }}</td>
             <td class="helicopter">
                 @if ($helicopterImage)
                     <img src="{{ $helicopterImage }}" alt="Aircraft">

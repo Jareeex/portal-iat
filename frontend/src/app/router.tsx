@@ -17,6 +17,7 @@ import TicketDetailPage from '../features/it-tickets/TicketDetailPage';
 import ProfilePage from '../features/profile/ProfilePage';
 import TrainingRemindersPage from '../features/training/TrainingRemindersPage';
 import AttendancePage from '../features/hr/AttendancePage';
+import FisReportSettingsPage from '../features/fis/FisReportSettingsPage';
 
 export const router = createBrowserRouter([
     {
@@ -69,6 +70,10 @@ export const router = createBrowserRouter([
                             {
                                 path: 'training-reminders',
                                 element: <TrainingRemindersPage />,
+                            },
+                            {
+                                path: 'fis-report-settings',
+                                element: <FisReportSettingsPage />,
                             },
                         ],
                     },
